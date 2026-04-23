@@ -1,3 +1,5 @@
+import AppRouter from "./router/AppRouter";
+
 export default function App() {
-  return <h1>AgentBoard</h1>;
+  return <AppRouter />;
 }
