@@ -1,117 +1,85 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import CardModal from "../../../components/card-modal/CardModal";
-import type { FeatureCardSummary, FeatureCardDetail } from "../../../api/board";
-import * as boardApi from "../../../api/board";
+import type { WorkItemDetail } from "../../../services/boardApi";
 
-vi.mock("../../../api/board", () => ({
-  getFeature: vi.fn(),
+vi.mock("../../../services/boardApi", () => ({
+  boardApi: {
+    getWorkItem: vi.fn(),
+    patchWorkItem: vi.fn(),
+  },
 }));
 
-function makeCard(overrides: Partial<FeatureCardSummary> = {}): FeatureCardSummary {
-  return {
+import { boardApi } from "../../../services/boardApi";
+
+function detail(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
+  const base = {
     id: "card-1",
+    projectId: "proj-1",
+    tenantId: "tenant-1",
+    type: "FEATURE" as const,
     title: "Test Feature",
-    description: "Initial desc",
-    reExecutionPending: false,
-    taskCount: 0,
-    completedTaskCount: 0,
+    description: "## Doc\n\nLine",
+    status: "BACKLOG",
+    parentId: null,
+    priority: 5,
     displayOrder: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    children: [],
+    artifacts: [],
+    commandExecutions: [],
     ...overrides,
   };
+  return base as WorkItemDetail;
 }
 
-describe("CardModal", () => {
+describe("CardModal — work item Markdown detail", () => {
   beforeEach(() => {
-    const card = makeCard();
-    const detail: FeatureCardDetail = {
-      ...card,
-      columnId: "col-1",
-      tenantId: "tenant-1",
-      tasks: [],
-      artifacts: [],
-      commandExecutions: [],
-    };
-    vi.mocked(boardApi.getFeature).mockResolvedValue(detail);
+    vi.mocked(boardApi.getWorkItem).mockResolvedValue(detail());
+    vi.mocked(boardApi.patchWorkItem).mockResolvedValue(detail({ title: "Updated Title" }));
   });
 
-  it("renders the card title", () => {
+  it("loads detail and renders title field", async () => {
     render(
-      <CardModal
-        card={makeCard()}
-        onClose={vi.fn()}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
-      />
+      <CardModal projectId="proj-1" workItemId="card-1" onClose={vi.fn()} onSaved={vi.fn()} />
     );
-    expect(screen.getByText("Test Feature")).toBeTruthy();
+    await waitFor(() => {
+      expect(boardApi.getWorkItem).toHaveBeenCalledWith("card-1");
+    });
+    expect(screen.getByDisplayValue("Test Feature")).toBeInTheDocument();
   });
 
-  it("calls onClose when the × button is clicked", () => {
+  it("calls onClose when Fechar is clicked", async () => {
     const onClose = vi.fn();
-    render(
-      <CardModal
-        card={makeCard()}
-        onClose={onClose}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByLabelText("Close"));
+    render(<CardModal projectId="proj-1" workItemId="card-1" onClose={onClose} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByDisplayValue("Test Feature")).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText("Fechar"));
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("calls onClose when Escape is pressed", () => {
-    const onClose = vi.fn();
-    render(
-      <CardModal
-        card={makeCard()}
-        onClose={onClose}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    );
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalled();
+  it("shows sanitized Markdown preview in read-only mode by default", async () => {
+    render(<CardModal projectId="proj-1" workItemId="card-1" onClose={vi.fn()} onSaved={vi.fn()} />);
+    const readPane = await screen.findByTestId("card-modal-description-read");
+    expect(within(readPane).getByRole("heading", { level: 2 })).toHaveTextContent("Doc");
   });
 
-  it("calls onSave with updated title and description", async () => {
-    const onSave = vi.fn().mockResolvedValue(undefined);
-    render(
-      <CardModal
-        card={makeCard()}
-        onClose={vi.fn()}
-        onSave={onSave}
-        onDelete={vi.fn()}
-      />
+  it("calls patchWorkItem when form is submitted", async () => {
+    const onSaved = vi.fn();
+    render(<CardModal projectId="proj-1" workItemId="card-1" onClose={vi.fn()} onSaved={onSaved} />);
+    await waitFor(() => expect(screen.getByDisplayValue("Test Feature")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByDisplayValue("Test Feature"), {
+      target: { value: "Updated Title" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() =>
+      expect(boardApi.patchWorkItem).toHaveBeenCalledWith("card-1", {
+        title: "Updated Title",
+        description: "## Doc\n\nLine",
+      })
     );
-
-    fireEvent.click(screen.getByText("Test Feature"));
-    const input = screen.getByDisplayValue("Test Feature");
-    fireEvent.change(input, { target: { value: "Updated Title" } });
-
-    fireEvent.click(screen.getByText("Save"));
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith("card-1", "Updated Title", "Initial desc"));
-  });
-
-  it("shows delete confirmation before calling onDelete", async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined);
-    const onClose = vi.fn();
-    render(
-      <CardModal
-        card={makeCard()}
-        onClose={onClose}
-        onSave={vi.fn()}
-        onDelete={onDelete}
-      />
-    );
-
-    fireEvent.click(screen.getByText("Delete card"));
-    expect(screen.getByText("Sure?")).toBeTruthy();
-
-    fireEvent.click(screen.getByText("Yes, delete"));
-    await waitFor(() => expect(onDelete).toHaveBeenCalledWith("card-1", "card-1"));
+    expect(onSaved).toHaveBeenCalled();
   });
 });

@@ -1,243 +1,347 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getFeature, updateFeature, type FeatureCardDetail } from "../../api/board";
-import type { FeatureCardSummary } from "../../api/board";
-import ExecutionHistory from "./ExecutionHistory";
-import ArtifactList from "./ArtifactList";
+import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { boardApi, type WorkItemDetail } from "../../services/boardApi";
+import MarkdownField from "../shared/MarkdownField";
+import MaterialIcon from "../shared/MaterialIcon";
 
-type Tab = "tasks" | "artifacts" | "history";
+const cardDescIconBtn =
+  "h-8 w-8 inline-flex items-center justify-center rounded-chip shrink-0 transition-colors " +
+  "text-[#6E6E73] dark:text-[#8E8E93] border border-transparent " +
+  "hover:text-accent hover:bg-accent/[0.08]";
+
+const headerFsBtn =
+  `${cardDescIconBtn} border border-black/[0.08] dark:border-white/[0.08]`;
+
+const CARD_DESC_EDITOR_BOX =
+  "min-h-[min(20rem,42dvh)] h-[min(20rem,42dvh)]";
 
 interface CardModalProps {
-  card: FeatureCardSummary;
+  projectId: string;
+  workItemId: string;
   onClose: () => void;
-  onSave: (id: string, title: string, description: string) => Promise<void>;
-  onDelete: (id: string, columnId: string) => Promise<void>;
+  onSaved: () => void;
 }
 
-/** Full-detail modal for a Feature Card with inline editing and tabbed sections. */
-export default function CardModal({
-  card,
+interface CardModalBodyProps {
+  detail: WorkItemDetail;
+  workItemId: string;
+  onClose: () => void;
+  onSaved: () => void;
+  layoutFullscreen: boolean;
+  onExitFullscreen: () => void;
+}
+
+function CardModalBody({
+  detail,
+  workItemId,
   onClose,
-  onSave,
-  onDelete,
-}: CardModalProps) {
-  const [detail, setDetail] = useState<FeatureCardDetail | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("tasks");
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [title, setTitle] = useState(card.title);
-  const [description, setDescription] = useState(card.description ?? "");
+  onSaved,
+  layoutFullscreen,
+  onExitFullscreen,
+}: CardModalBodyProps) {
+  const [title, setTitle] = useState(detail.title ?? "");
+  const [description, setDescription] = useState(detail.description ?? "");
+  const [descriptionEditing, setDescriptionEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [reExecutePending, setReExecutePending] = useState(card.reExecutionPending);
-  const [requestingReExecute, setRequestingReExecute] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getFeature(card.id).then(setDetail).catch(() => null);
-  }, [card.id]);
-
-  useEffect(() => {
-    if (editingTitle) titleInputRef.current?.focus();
-  }, [editingTitle]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
-  async function handleSave() {
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
-      await onSave(card.id, title, description);
-      setEditingTitle(false);
+      await boardApi.patchWorkItem(workItemId, {
+        title: title.trim(),
+        description: description.trim() || "",
+      });
+      setDescriptionEditing(false);
+      onSaved();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleReExecute() {
-    setRequestingReExecute(true);
-    try {
-      await updateFeature(card.id, { reExecutionPending: true });
-      setReExecutePending(true);
-    } finally {
-      setRequestingReExecute(false);
-    }
-  }
+  const descSource = description;
+  const hasDescription = Boolean(descSource.trim());
 
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await onDelete(card.id, card.id);
-      onClose();
-    } finally {
-      setDeleting(false);
-    }
-  }
+  const titleBlock = (
+    <div className="shrink-0">
+      <label
+        htmlFor="card-modal-title"
+        className="block text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93] mb-1.5"
+      >
+        Título <span className="text-red-500 ml-0.5">*</span>
+      </label>
+      <input
+        id="card-modal-title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+        className="w-full h-10 px-3 rounded-chip text-sm text-[#1D1D1F] dark:text-[#F5F5F7] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] placeholder-[#6E6E73] dark:placeholder-[#8E8E93] focus:outline-none focus:ring-2 focus:ring-accent/40"
+      />
+    </div>
+  );
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "tasks", label: "Tasks" },
-    { id: "artifacts", label: "Artifacts" },
-    { id: "history", label: "History" },
-  ];
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
-        <div className="flex items-start justify-between gap-4 p-6 pb-4 border-b border-gray-100">
-          <div className="flex-1 min-w-0">
-            {editingTitle ? (
-              <input
-                ref={titleInputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => setEditingTitle(false)}
-                className="w-full text-xl font-semibold text-gray-900 border-b-2 border-indigo-400 outline-none bg-transparent"
-              />
-            ) : (
-              <h2
-                className="text-xl font-semibold text-gray-900 cursor-text hover:text-indigo-700 truncate"
-                onClick={() => setEditingTitle(true)}
-                title="Click to edit title"
-              >
-                {title}
-              </h2>
-            )}
-          </div>
+  const descriptionBlock = (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <label
+          id="card-modal-desc-label"
+          className="text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93]"
+        >
+          Descrição
+        </label>
+        {!descriptionEditing ? (
           <button
             type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0"
-            aria-label="Close"
+            aria-label="Editar descrição"
+            data-testid="card-desc-mode-edit"
+            className={cardDescIconBtn}
+            onClick={() => setDescriptionEditing(true)}
           >
-            ×
+            <MaterialIcon name="edit" />
           </button>
-        </div>
+        ) : (
+          <button
+            type="button"
+            aria-label="Visualizar descrição"
+            data-testid="card-desc-mode-preview"
+            className={cardDescIconBtn}
+            onClick={() => setDescriptionEditing(false)}
+          >
+            <MaterialIcon name="visibility" />
+          </button>
+        )}
+      </div>
 
-        <div className="px-6 pt-4 flex-1 overflow-y-auto">
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Add a description…"
-              className="w-full text-sm text-gray-700 border border-gray-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-
-          <div className="flex gap-1 border-b border-gray-100 mb-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                  activeTab === tab.id
-                    ? "text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="min-h-[100px] pb-4">
-            {activeTab === "tasks" && (
-              <p className="text-sm text-gray-400 italic">
-                {detail?.tasks?.length
-                  ? `${detail.tasks.length} task(s) created by the SpecKit agent.`
-                  : "No tasks yet. The agent will create tasks via MCP tools."}
-              </p>
-            )}
-            {activeTab === "artifacts" && (
-              <ArtifactList artifacts={detail?.artifacts ?? []} />
-            )}
-            {activeTab === "history" && (
-              <ExecutionHistory executions={detail?.commandExecutions ?? []} />
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
-          <div className="flex items-center gap-3">
-            {!reExecutePending ? (
-              <button
-                type="button"
-                onClick={handleReExecute}
-                disabled={requestingReExecute}
-                className="text-sm font-medium text-amber-600 hover:text-amber-800 disabled:opacity-50"
-                title="Signal agent to re-execute the current SpecKit stage"
-              >
-                {requestingReExecute ? "Signaling…" : "↻ Re-execute"}
-              </button>
-            ) : (
-              <span className="text-xs text-amber-600 font-semibold">
-                ↻ Re-execution pending
-              </span>
-            )}
-          </div>
-          <div>
-            {!confirmDelete ? (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="text-sm text-red-500 hover:text-red-700 font-medium"
-              >
-                Delete card
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Sure?</span>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="text-sm text-red-600 font-semibold disabled:opacity-50"
-                >
-                  {deleting ? "Deleting…" : "Yes, delete"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Cancel
-                </button>
+      {!descriptionEditing ? (
+        <div data-testid="card-modal-description-read">
+          {hasDescription ? (
+            layoutFullscreen ? (
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <MarkdownField variant="preview-only" value={descSource} previewFillParent />
               </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+            ) : (
+              <MarkdownField variant="preview-only" value={descSource} />
+            )
+          ) : (
+            <p className="text-sm font-medium text-[#6E6E73] dark:text-[#8E8E93]">Sem descrição</p>
+          )}
+        </div>
+      ) : layoutFullscreen ? (
+        <div className="flex w-full min-w-0 shrink-0 flex-col">
+          <MarkdownField
+            variant="split"
+            showPreview={false}
+            stretchToParent
+            embedFullscreenToggle={false}
+            showFullscreenToggle={false}
+            labelledBy="card-modal-desc-label"
+            value={descSource}
+            onChange={setDescription}
+            placeholder="Escreva em Markdown..."
+          />
+        </div>
+      ) : (
+        <MarkdownField
+          variant="split"
+          showPreview={false}
+          labelledBy="card-modal-desc-label"
+          value={descSource}
+          onChange={setDescription}
+          placeholder="Escreva em Markdown..."
+          editorBoxClassName={CARD_DESC_EDITOR_BOX}
+        />
+      )}
+    </div>
+  );
+
+  const scrollBody = layoutFullscreen ? (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-6 lg:px-8">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+        {titleBlock}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">{descriptionBlock}</div>
+        {error ? (
+          <p className="shrink-0 text-sm text-red-500 font-medium" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  ) : (
+    <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-7 py-4">
+      <div className="flex flex-col gap-4">
+        {titleBlock}
+        {descriptionBlock}
+        {error ? <p className="text-sm text-red-500 font-medium">{error}</p> : null}
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <div
+      className={[
+        "flex shrink-0 justify-end gap-2 border-t border-black/[0.08] py-4 dark:border-white/[0.08]",
+        layoutFullscreen ? "px-6 lg:px-8 bg-white dark:bg-[#1C1C1E]" : "px-7",
+      ].join(" ")}
+    >
+      {layoutFullscreen ? (
+        <button
+          type="button"
+          onClick={onExitFullscreen}
+          className="h-9 px-5 rounded-full text-sm font-medium border border-accent/40 text-accent hover:bg-accent/[0.06] transition-all duration-[120ms]"
+        >
+          Voltar
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-9 rounded-full border border-accent/40 px-5 text-sm font-medium text-accent transition-all duration-[120ms] hover:bg-accent/[0.06]"
+        >
+          Cancelar
+        </button>
+      )}
+      <button
+        type="submit"
+        disabled={saving}
+        className="h-9 rounded-full bg-accent px-5 text-sm font-medium text-white transition-all duration-[120ms] hover:brightness-110 disabled:opacity-60"
+      >
+        {saving ? "Salvando..." : "Salvar"}
+      </button>
+    </div>
+  );
+
+  return (
+    <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {scrollBody}
+      {footer}
+    </form>
+  );
+}
+
+export default function CardModal({
+  projectId,
+  workItemId,
+  onClose,
+  onSaved,
+}: CardModalProps) {
+  const [modalFullscreen, setModalFullscreen] = useState(false);
+  const { data, isLoading } = useSWR(
+    projectId && workItemId ? `work-item-${projectId}-${workItemId}` : null,
+    () => boardApi.getWorkItem(workItemId),
+    { revalidateOnFocus: false }
+  );
+
+  useEffect(() => {
+    if (!modalFullscreen) return undefined;
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "Escape") {
+        setModalFullscreen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalFullscreen]);
+
+  function handleBackdropClick(e: React.MouseEvent) {
+    if (e.target !== e.currentTarget) return;
+    if (modalFullscreen) return;
+    onClose();
+  }
+
+  function headerClose() {
+    return (
+      <button
+        type="button"
+        aria-label="Fechar"
+        onClick={onClose}
+        className={`${cardDescIconBtn} shrink-0`}
+      >
+        <MaterialIcon name="close" />
+      </button>
+    );
+  }
+
+  const headerIcons = modalFullscreen ? (
+    <button
+      type="button"
+      key="fs-exit"
+      aria-label="Close full screen"
+      data-testid="markdown-fullscreen-exit"
+      onClick={() => setModalFullscreen(false)}
+      className={headerFsBtn}
+    >
+      <MaterialIcon name="close_fullscreen" />
+    </button>
+  ) : (
+    <button
+      type="button"
+      key="fs-enter"
+      aria-label="Open in full"
+      data-testid="markdown-fullscreen-enter"
+      onClick={() => setModalFullscreen(true)}
+      className={headerFsBtn}
+    >
+      <MaterialIcon name="open_in_full" />
+    </button>
+  );
+
+  const backdropClass = modalFullscreen
+    ? "fixed inset-0 z-50 flex flex-col min-h-0 bg-[#F5F5F7] dark:bg-[#0A0A0F]"
+    : "fixed inset-0 z-50 box-border flex flex-col bg-black/40 p-6 backdrop-blur-sm";
+
+  const dialogClass = modalFullscreen
+    ? "flex flex-col h-[100dvh] max-h-[100dvh] w-full shrink-0 overflow-hidden rounded-none shadow-none bg-white dark:bg-[#1C1C1E]"
+    : "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-modal bg-white shadow-modal dark:bg-[#1C1C1E]";
+
+  const headerClass = modalFullscreen
+    ? "relative z-10 shrink-0 flex items-start justify-between gap-4 border-b border-black/[0.08] px-6 pt-6 pb-5 lg:px-8 dark:border-white/[0.08]"
+    : "flex shrink-0 items-start justify-between gap-4 border-b border-black/[0.08] px-7 pb-4 pt-7 dark:border-white/[0.08]";
+
+  const titleClass =
+    "flex-1 min-w-0 pr-2 text-[20px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7]";
+
+  return (
+    <div role="presentation" className={backdropClass} onClick={handleBackdropClick}>
+      <div
+        className={dialogClass}
+        onClick={(ev) => ev.stopPropagation()}
+        role="dialog"
+        aria-labelledby="card-modal-heading"
+      >
+        <div className={headerClass}>
+          <h2 id="card-modal-heading" className={titleClass}>
+            Detalhe do item
+          </h2>
+          <div className="flex shrink-0 items-center gap-1">
+            {headerIcons}
+            {headerClose()}
           </div>
         </div>
+
+        {isLoading ? (
+          <div className="min-h-0 flex-1 overflow-hidden px-7 py-4">
+            <div className="skeleton-shimmer h-48 rounded-chip w-full" />
+          </div>
+        ) : data ? (
+          <CardModalBody
+            key={`${data.id}-${data.updatedAt}`}
+            detail={data}
+            workItemId={workItemId}
+            onClose={onClose}
+            onSaved={onSaved}
+            layoutFullscreen={modalFullscreen}
+            onExitFullscreen={() => setModalFullscreen(false)}
+          />
+        ) : (
+          <div className="px-7 py-4">
+            <p className="text-sm text-[#6E6E73] dark:text-[#8E8E93] font-medium">Item não encontrado.</p>
+          </div>
+        )}
       </div>
     </div>
   );

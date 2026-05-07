@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import ArtifactList from "../../../components/card-modal/ArtifactList";
-import type { ArtifactData } from "../../../api/board";
+import type { ArtifactData } from "../../../services/boardApi";
 
 const artifacts: ArtifactData[] = [
   {
@@ -19,6 +19,35 @@ const artifacts: ArtifactData[] = [
     createdAt: "2026-01-01T11:00:00Z",
   },
 ];
+
+describe("ArtifactList — dark mode", () => {
+  beforeEach(() => {
+    document.documentElement.classList.add("dark");
+  });
+
+  afterEach(() => {
+    document.documentElement.classList.remove("dark");
+  });
+
+  it("row has dark border token class", () => {
+    render(<ArtifactList artifacts={[artifacts[0]!]} />);
+    const row = screen.getByTestId("artifact-row");
+    expect(row.className).toContain("dark:border-white/[0.08]");
+  });
+
+  it("row has dark hover background token class", () => {
+    render(<ArtifactList artifacts={[artifacts[0]!]} />);
+    const row = screen.getByTestId("artifact-row");
+    expect(row.className).toContain("dark:hover:bg-white/[0.04]");
+  });
+
+  it("command badge has dark accent token classes", () => {
+    render(<ArtifactList artifacts={[artifacts[0]!]} />);
+    const badge = screen.getByText("specify");
+    expect(badge.className).toContain("dark:bg-accent/[0.15]");
+    expect(badge.className).toContain("dark:text-accent");
+  });
+});
 
 describe("ArtifactList", () => {
   it("renders command names for each artifact", () => {

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import ExecutionHistory from "../../../components/card-modal/ExecutionHistory";
-import type { CommandExecutionData } from "../../../api/board";
+import type { CommandExecutionData } from "../../../services/boardApi";
 
 const executions: CommandExecutionData[] = [
   {
@@ -35,6 +35,43 @@ const executions: CommandExecutionData[] = [
     durationMs: null,
   },
 ];
+
+describe("ExecutionHistory — dark mode", () => {
+  beforeEach(() => {
+    document.documentElement.classList.add("dark");
+  });
+
+  afterEach(() => {
+    document.documentElement.classList.remove("dark");
+  });
+
+  it("row has dark border token class", () => {
+    render(<ExecutionHistory executions={[executions[0]!]} />);
+    const row = screen.getByTestId("exec-row");
+    expect(row.className).toContain("dark:border-white/[0.08]");
+  });
+
+  it("SUCCESS badge has dark green token classes", () => {
+    render(<ExecutionHistory executions={[executions[0]!]} />);
+    const badge = screen.getByText("SUCCESS");
+    expect(badge.className).toContain("dark:bg-green-900/30");
+    expect(badge.className).toContain("dark:text-green-400");
+  });
+
+  it("ERROR badge has dark red token classes", () => {
+    render(<ExecutionHistory executions={[executions[1]!]} />);
+    const badge = screen.getByText("ERROR");
+    expect(badge.className).toContain("dark:bg-red-900/30");
+    expect(badge.className).toContain("dark:text-red-400");
+  });
+
+  it("RUNNING badge has dark yellow token classes", () => {
+    render(<ExecutionHistory executions={[executions[2]!]} />);
+    const badge = screen.getByText("RUNNING");
+    expect(badge.className).toContain("dark:bg-yellow-900/30");
+    expect(badge.className).toContain("dark:text-yellow-400");
+  });
+});
 
 describe("ExecutionHistory", () => {
   it("renders command names for each execution", () => {

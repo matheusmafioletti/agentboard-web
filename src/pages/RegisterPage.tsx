@@ -2,6 +2,12 @@ import { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
+const INPUT_CLS =
+  "w-full border border-black/[0.08] dark:border-white/[0.08] bg-transparent rounded-card px-3 py-2.5 text-sm text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-accent/40";
+
+const LABEL_CLS =
+  "block text-[11px] font-semibold text-[#6E6E73] dark:text-[#8E8E93] uppercase tracking-caps mb-1.5";
+
 /** Registration page that creates a new tenant and user. */
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -22,8 +28,10 @@ export default function RegisterPage() {
       const response = await register({ name, email, password, tenantName });
       setApiKey(response.apiKey);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      setError(status === 409 ? "Email already registered." : "Registration failed. Please try again.");
+      const status = (err as { status?: number })?.status;
+      setError(
+        status === 409 ? "E-mail já cadastrado." : "Falha no cadastro. Tente novamente."
+      );
     } finally {
       setLoading(false);
     }
@@ -31,20 +39,22 @@ export default function RegisterPage() {
 
   if (apiKey) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration successful!</h1>
-          <p className="text-sm text-gray-600 mb-4">
-            Save your API key below — it will never be shown again.
+      <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#0A0A0F] flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-modal shadow-modal p-8">
+          <h1 className="text-[22px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-heading mb-2">
+            Conta criada!
+          </h1>
+          <p className="text-sm text-[#6E6E73] dark:text-[#8E8E93] mb-4">
+            Guarde sua API key abaixo — ela não será exibida novamente.
           </p>
-          <div className="bg-gray-100 rounded-lg px-4 py-3 font-mono text-sm break-all mb-6 select-all">
+          <div className="bg-[#F2F2F7] dark:bg-[#2C2C2E] rounded-card px-3 py-2.5 font-mono text-xs break-all select-all text-[#1D1D1F] dark:text-[#F5F5F7] mb-6">
             {apiKey}
           </div>
           <button
-            onClick={() => navigate("/board")}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+            onClick={() => navigate("/inicio")}
+            className="w-full h-9 bg-accent hover:brightness-110 text-white font-medium rounded-full text-sm transition-all duration-[120ms]"
           >
-            Go to board
+            Ir para o início
           </button>
         </div>
       </div>
@@ -52,76 +62,84 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">Create account</h1>
+    <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#0A0A0F] flex items-center justify-center px-4">
+      <div className="w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-modal shadow-modal p-8">
+        <h1 className="text-[22px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-heading mb-1 text-center">
+          Criar conta
+        </h1>
+        <p className="text-sm text-[#6E6E73] dark:text-[#8E8E93] text-center mb-7">
+          Configure seu time e workspace
+        </p>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">
-              Your name
-            </label>
+            <label className={LABEL_CLS} htmlFor="name">Seu nome</label>
             <input
               id="name"
               type="text"
               required
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tenantName">
-              Team / company name
-            </label>
+            <label className={LABEL_CLS} htmlFor="tenantName">Time / empresa</label>
             <input
               id="tenantName"
               type="text"
               required
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
-              Email
-            </label>
+            <label className={LABEL_CLS} htmlFor="email">E-mail</label>
             <input
               id="email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
-              Password
-            </label>
+            <label className={LABEL_CLS} htmlFor="password">Senha</label>
             <input
               id="password"
               type="password"
               required
               minLength={8}
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={INPUT_CLS}
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {error && (
+            <p className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-chip">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+            className="w-full h-9 bg-accent hover:brightness-110 disabled:opacity-50 text-white font-medium rounded-full text-sm transition-all duration-[120ms]"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Criando conta…" : "Criar conta"}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-gray-500">
-          Already have an account?{" "}
-          <Link to="/login" className="text-indigo-600 hover:underline">
-            Sign in
+
+        <p className="mt-5 text-center text-sm text-[#6E6E73] dark:text-[#8E8E93]">
+          Já tem uma conta?{" "}
+          <Link to="/login" className="text-accent font-medium hover:opacity-90 transition-all">
+            Entrar
           </Link>
         </p>
       </div>

@@ -1,61 +1,19 @@
-# TEST_STRATEGY — agentboard-web
+# TEST_STRATEGY.md — agentboard-web
 
-## Scope
+## Owned automated tests
 
-Unit tests for React components, custom hooks, and the board state reducer. All network
-interaction and WebSocket communication is mocked in tests.
+| Area | Location | Notes |
+|------|----------|--------|
+| MarkdownField (sanitize, split, preview-only, fullscreen toggle) | `src/components/shared/__tests__/MarkdownField.test.tsx` | Vitest + Testing Library |
 
-## Test Layers
+## Manual regressions (Markdown descriptions)
 
-| Layer | Location | Tooling | Scope |
-|-------|----------|---------|-------|
-| Unit | `src/test/unit/components/` | Vitest + Testing Library + jsdom | Component rendering, user interactions, conditional UI |
-| Unit | `src/test/unit/hooks/` | Vitest + jsdom | Hook state transitions, side effects, mock service integration |
+1. Create work item: type `**bold**` and a list; confirm preview updates before save; fullscreen on/off without losing text; save and reopen from board card.
+2. Card detail: open item → read-only preview equals editor preview; Edit description → split panes → save → read-only updates.
+3. Paste untrusted HTML/script fragments; confirm source text is kept in editor but preview does not execute scripts.
+4. Non-ASCII and punctuation (`*_[]`, accented characters) survive save → GET round-trip (covered in `WorkItemControllerIT#patchWorkItem_preservesMarkdownDescriptionRoundTripThroughGetDetail`).
+5. Kanban: drag still works from the grip icon; title click opens detail modal.
 
-## Key Test Subjects
+## Out of scope today
 
-### `boardReducer` (`src/store/boardReducer.ts`)
-Tested for every action type including all 8 WebSocket event types:
-`INIT_BOARD`, `ADD_CARD`, `UPDATE_CARD`, `DELETE_CARD`, `MOVE_CARD`,
-`TASKS_CREATED`, `TASK_UPDATED`, `ARTIFACT_ADDED`, `COMMAND_EXECUTION_UPDATED`
-
-### `useWebSocket` hook (`src/hooks/useWebSocket.ts`)
-- Tested with a mock `@stomp/stompjs` Client
-- Asserts subscription to `/topic/tenant/{tenantId}/board-events`
-- Asserts `boardReducer` dispatch is called for each incoming event type
-- Asserts reconnect triggers `INIT_BOARD` full sync via `GET /api/boards/current`
-
-### `useAuth` hook (`src/hooks/useAuth.ts`)
-- Login/logout/register state transitions
-- JWT storage and retrieval from localStorage
-- Axios mock responses for success and error cases
-
-### Components
-- `FeatureCard`: renders title, reExecutionPending badge, task progress indicator
-- `CardModal`: title editing, description editing, tab navigation, delete/save
-- `Board`: drag-end simulation, column transitions, API call assertions
-
-## Mocked Services
-
-- API calls mocked via Axios mock adapters or MSW (Mock Service Worker)
-- `@stomp/stompjs` Client mocked in `useWebSocket` tests
-- No Pact involvement — web consumes board-service APIs directly
-
-## What Is NOT Tested Here
-
-- Full user flows (covered by `agentboard-e2e`)
-- API contract correctness (covered by `agentboard-api-tests`)
-
-## Running Tests
-
-```bash
-npm test        # Vitest unit tests
-npm run lint    # ESLint
-npm run build   # TypeScript type-check + Vite build
-```
-
-## Notes
-
-- SWR polling interval must be ≤ 3s per MVP constraints (used only for auth, not board state)
-- Board state is driven by WebSocket events via `boardReducer`; REST is used only for initial
-  load and reconnect sync
+- Dashboard / list views do not render work item bodies; no change required until those surfaces show `description`.

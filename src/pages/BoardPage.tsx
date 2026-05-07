@@ -1,113 +1,28 @@
-import { useState } from "react";
-import { useBoard } from "../hooks/useBoard";
-import { useAuth } from "../hooks/useAuth";
-import { useWebSocket } from "../hooks/useWebSocket";
-import Board from "../components/board/Board";
-import CardModal from "../components/card-modal/CardModal";
-import type { FeatureCardSummary } from "../api/board";
+import ProjectSelector from "../components/layout/ProjectSelector";
+import WorkItemBoard from "../components/board/WorkItemBoard";
+import { useProjectStore } from "../hooks/useProjectStore";
 
-/** Full Kanban board page with drag-and-drop and Feature Card management. */
+/** Page for the unified work item board with type selector. */
 export default function BoardPage() {
-  const { board, loading, error, createCard, updateCard, deleteCard, moveCard, refresh, dispatch } =
-    useBoard();
-  const { user } = useAuth();
-  useWebSocket(user?.token ?? null, user?.tenantId ?? null, dispatch, refresh);
-  const [selectedCard, setSelectedCard] = useState<FeatureCardSummary | null>(
-    null
-  );
-  const [newCardTitle, setNewCardTitle] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  async function handleCreateCard() {
-    const title = newCardTitle.trim();
-    if (!title) return;
-    setCreating(true);
-    try {
-      await createCard(title);
-      setNewCardTitle("");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleSaveCard(
-    id: string,
-    title: string,
-    description: string
-  ) {
-    await updateCard(id, { title, description });
-    setSelectedCard((prev) =>
-      prev?.id === id ? { ...prev, title, description } : prev
-    );
-  }
-
-  async function handleDeleteCard(id: string, columnId: string) {
-    await deleteCard(id, columnId);
-    setSelectedCard(null);
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <span className="text-gray-400 text-sm">Loading board…</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <span className="text-red-500 text-sm">{error}</span>
-      </div>
-    );
-  }
-
-  if (!board) return null;
-
-  const newCardInputNode = (
-    <>
-      <input
-        type="text"
-        value={newCardTitle}
-        onChange={(e) => setNewCardTitle(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleCreateCard()}
-        placeholder="New feature…"
-        className="w-full text-sm rounded-lg border border-gray-200 px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-1"
-      />
-      <button
-        type="button"
-        onClick={handleCreateCard}
-        disabled={creating || !newCardTitle.trim()}
-        className="w-full text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white py-1.5 transition-colors"
-      >
-        {creating ? "Adding…" : "+ Add Feature"}
-      </button>
-    </>
-  );
+  const { activeProject } = useProjectStore();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">{board.name}</h1>
-      </header>
-
-      <div className="p-6 overflow-x-auto">
-        <Board
-          board={board}
-          onCardClick={setSelectedCard}
-          onMoveCard={moveCard}
-          newCardInput={newCardInputNode}
-        />
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0A0A0F] shrink-0">
+        <span className="text-[11px] font-semibold text-[#6E6E73] dark:text-[#8E8E93] uppercase tracking-caps">
+          Projeto
+        </span>
+        <ProjectSelector />
       </div>
-
-      {selectedCard && (
-        <CardModal
-          card={selectedCard}
-          onClose={() => setSelectedCard(null)}
-          onSave={handleSaveCard}
-          onDelete={handleDeleteCard}
-        />
-      )}
+      <main className="animate-page-enter flex-1 overflow-hidden">
+        {activeProject ? (
+          <WorkItemBoard projectId={activeProject.id} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-[#6E6E73] dark:text-[#8E8E93] text-sm">
+            Selecione um projeto para ver o board.
+          </div>
+        )}
+      </main>
     </div>
   );
 }

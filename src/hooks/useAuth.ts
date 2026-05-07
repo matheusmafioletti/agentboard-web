@@ -4,12 +4,13 @@ import {
   register as apiRegister,
   type LoginPayload,
   type RegisterPayload,
-} from "../api/auth";
+} from "../services/authApi";
 
 interface AuthUser {
   userId: string;
   tenantId: string;
   token: string;
+  email: string;
 }
 
 const TOKEN_KEY = "agentboard_token";
@@ -41,6 +42,7 @@ export function useAuth() {
         userId: response.userId,
         tenantId: response.tenantId,
         token: response.token,
+        email: response.email,
       });
       return response;
     },
@@ -54,6 +56,7 @@ export function useAuth() {
         userId: response.userId,
         tenantId: response.tenantId,
         token: response.token,
+        email: payload.email,
       });
       return response;
     },

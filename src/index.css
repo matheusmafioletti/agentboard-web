@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: 'cv01', 'cv03', 'cv04', 'tnum';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-[#F5F5F7] dark:bg-[#0A0A0F] text-[#1D1D1F] dark:text-[#F5F5F7] font-sans;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Smooth color transitions when toggling dark mode */
+  html {
+    transition: background-color 250ms ease, color 150ms ease;
+  }
+
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+}
+
+@layer utilities {
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      #E5E5EA 25%,
+      #F2F2F7 50%,
+      #E5E5EA 75%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .dark .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      #2C2C2E 25%,
+      #3A3A3C 50%,
+      #2C2C2E 75%
+    );
+    background-size: 400% 100%;
+  }
+
+  .glass-sidebar {
+    @apply bg-white/80 backdrop-blur-xl;
+  }
+
+  .dark .glass-sidebar {
+    @apply bg-[#0A0A0F]/70 backdrop-blur-xl;
+  }
+}
+

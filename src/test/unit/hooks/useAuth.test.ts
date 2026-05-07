@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "../../../hooks/useAuth";
 
-vi.mock("../../../api/auth", () => ({
+vi.mock("../../../services/authApi", () => ({
   login: vi.fn(),
   register: vi.fn(),
 }));
 
-import * as authApi from "../../../api/auth";
+import * as authApi from "../../../services/authApi";
 
 const mockLogin = vi.mocked(authApi.login);
 const mockRegister = vi.mocked(authApi.register);
