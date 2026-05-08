@@ -78,6 +78,18 @@ export interface Project {
   updatedAt: string;
 }
 
+export interface WorkItemParentPreview {
+  id: string;
+  type: string;
+  title: string;
+  displayKey: string;
+}
+
+export interface TenantUser {
+  id: string;
+  email: string;
+}
+
 export interface WorkItem {
   id: string;
   projectId: string;
@@ -91,6 +103,9 @@ export interface WorkItem {
   displayOrder: number;
   createdAt: string;
   updatedAt: string;
+  displayKey: string;
+  parentPreview?: WorkItemParentPreview | null;
+  assigneeId: string | null;
 }
 
 export interface WorkItemDetail extends WorkItem {
@@ -237,6 +252,7 @@ export interface CreateWorkItemPayload {
   description?: string;
   parentId?: string;
   priority?: number;
+  assigneeId?: string | null;
 }
 
 export interface BatchCreateWorkItemPayload {
@@ -337,11 +353,15 @@ export const boardApi = {
     type?: string;
     parentId?: string;
     status?: string;
+    includeParent?: boolean;
+    assigneeId?: string | null;
   }) => {
     const query = new URLSearchParams({ projectId: params.projectId });
     if (params.type) query.set("type", params.type);
     if (params.parentId) query.set("parentId", params.parentId);
     if (params.status) query.set("status", params.status);
+    if (params.includeParent === true) query.set("includeParent", "true");
+    if (params.assigneeId) query.set("assigneeId", params.assigneeId);
     return apiFetch<WorkItem[]>(`/api/v1/work-items?${query.toString()}`);
   },
 
@@ -369,11 +389,17 @@ export const boardApi = {
       body: JSON.stringify({ status }),
     }),
 
-  patchWorkItem: (id: string, payload: { title?: string; description?: string }) =>
+  patchWorkItem: (id: string, payload: {
+    title?: string;
+    description?: string;
+    assignee?: { id?: string; clear?: boolean } | null;
+  }) =>
     apiFetch<WorkItem>(`/api/v1/work-items/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+
+  listUsers: () => apiFetch<TenantUser[]>("/api/v1/users"),
 
   addArtifactToWorkItem: (
     id: string,
@@ -387,30 +413,30 @@ export const boardApi = {
 
 // ---------------------------------------------------------------------------
 // SWR hooks for dashboard metrics
-// NOTE: board-level data polls at 3s; project list revalidates on focus only
 // ---------------------------------------------------------------------------
 
 const BOARD_POLL = { refreshInterval: 3000 };
 
-export function useOpenFeaturesCount() {
-  const { data: projects } = useSWR<Project[]>("projects", () =>
-    boardApi.listProjects()
-  );
-  const firstProjectId = projects?.[0]?.id ?? null;
-  const { data } = useSWR<WorkItem[]>(
-    firstProjectId ? `work-items-features-${firstProjectId}` : null,
-    () => boardApi.listWorkItems({ projectId: firstProjectId!, type: "FEATURE" }),
+/**
+ * Fetches all work items across every project in the tenant and returns them
+ * together with the full project list for dashboard aggregation.
+ */
+export function useAllWorkItems(): { projects: Project[]; allItems: WorkItem[]; isLoading: boolean } {
+  const { data: projects = [] } = useSWR<Project[]>("projects", boardApi.listProjects);
+
+  const projectIds = projects.map((p) => p.id);
+  const cacheKey = projectIds.length > 0 ? `all-work-items-${projectIds.join(",")}` : null;
+
+  const { data: allItems = [], isLoading } = useSWR<WorkItem[]>(
+    cacheKey,
+    async () => {
+      const batches = await Promise.all(
+        projectIds.map((id) => boardApi.listWorkItems({ projectId: id }))
+      );
+      return batches.flat();
+    },
     BOARD_POLL
   );
-  return data?.filter((f) => f.status !== "DONE").length ?? 0;
-}
 
-// NOTE: /api/v1/user-stories (global list) does not exist — count is derived from the feature board
-export function useOpenUserStoriesCount() {
-  return 0;
-}
-
-export function useProjectsCount() {
-  const { data } = useSWR<Project[]>("projects", () => boardApi.listProjects());
-  return data?.length ?? 0;
+  return { projects, allItems, isLoading };
 }

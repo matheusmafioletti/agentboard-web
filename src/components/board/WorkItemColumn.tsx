@@ -7,7 +7,9 @@ interface WorkItemColumnProps {
   label: string;
   items: WorkItem[];
   isAutoOnly?: boolean;
-  onOpenDetail?: (workItemId: string) => void;
+  activeProjectName?: string;
+  usersById?: Map<string, string>;
+  onOpenWorkItem?: (workItemId: string) => void;
 }
 
 /** A droppable kanban column for a single status bucket of WorkItems. */
@@ -16,7 +18,9 @@ export default function WorkItemColumn({
   label,
   items,
   isAutoOnly,
-  onOpenDetail,
+  activeProjectName,
+  usersById,
+  onOpenWorkItem,
 }: WorkItemColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -44,10 +48,13 @@ export default function WorkItemColumn({
           <WorkItemCard
             key={item.id}
             workItem={item}
+            activeProjectName={activeProjectName}
+            usersById={usersById}
             disabled={isAutoOnly}
             onOpenDetail={
-              !isAutoOnly ? () => onOpenDetail?.(item.id) : undefined
+              !isAutoOnly ? () => onOpenWorkItem?.(item.id) : undefined
             }
+            onOpenRelatedId={!isAutoOnly ? onOpenWorkItem : undefined}
           />
         ))}
       </div>

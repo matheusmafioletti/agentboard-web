@@ -14,12 +14,14 @@ export default function ItemsPage() {
         </span>
         <ProjectSelector />
       </div>
-      <main className="animate-page-enter flex-1 overflow-auto px-6 py-5">
-        <h1 className="text-[28px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7] mb-5">
+      <main className="animate-page-enter flex-1 min-h-0 overflow-hidden flex flex-col px-6 py-5 gap-5">
+        <h1 className="text-[28px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0">
           Itens
         </h1>
         {activeProject ? (
-          <ItemsListView projectId={activeProject.id} />
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <ItemsListView projectId={activeProject.id} />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-48 text-[#6E6E73] dark:text-[#8E8E93] text-sm">
             Selecione um projeto para ver os itens.

@@ -26,6 +26,7 @@ function detail(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
     displayOrder: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    displayKey: "F1",
     children: [],
     artifacts: [],
     commandExecutions: [],

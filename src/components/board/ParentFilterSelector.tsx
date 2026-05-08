@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import useSWR from "swr";
 
 import MaterialIcon from "../shared/MaterialIcon";
 import { boardApi, type WorkItem } from "../../services/boardApi";
+import WorkItemTypeBadge from "../shared/WorkItemTypeBadge";
 
 interface ParentFilterSelectorProps {
   projectId: string;
@@ -13,16 +14,19 @@ interface ParentFilterSelectorProps {
   /** When set (typically with `variant="form"`), shows control to unlink the selected parent. */
   onClear?: () => void;
   variant?: "board" | "form";
+  /** When `variant="board"`, replaces the inline text dropdown trigger (modal unchanged). */
+  renderBoardTrigger?: (openModal: () => void, modalOpen: boolean) => ReactNode;
 }
 
 function squashWhitespace(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
-/** Caption for form variant: title — full description (plain), or title only when empty. */
+/** Caption for form variant: display key, title, optional description. */
 function formatFormParentCaption(p: WorkItem): string {
   const desc = p.description ? squashWhitespace(p.description) : "";
-  return desc.length ? `${p.title} — ${desc}` : p.title;
+  const head = `${p.displayKey} · ${p.title}`;
+  return desc.length ? `${head} — ${desc}` : head;
 }
 
 const PARENT_TYPE: Record<"USER_STORY" | "TASK", "FEATURE" | "USER_STORY"> = {
@@ -53,6 +57,7 @@ export default function ParentFilterSelector({
   onSelect,
   onClear,
   variant = "board",
+  renderBoardTrigger,
 }: ParentFilterSelectorProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -141,6 +146,8 @@ export default function ParentFilterSelector({
             ) : null}
           </div>
         )
+      ) : renderBoardTrigger ? (
+        renderBoardTrigger(openModal, modalOpen)
       ) : (
         <button
           type="button"
@@ -150,9 +157,18 @@ export default function ParentFilterSelector({
           aria-haspopup="dialog"
           aria-expanded={modalOpen}
         >
-          <span className="text-sm font-medium truncate">
-            {selectedParent ? selectedParent.title : `Selecionar ${label}…`}
-          </span>
+            <span className="text-sm font-medium truncate inline-flex items-center gap-2 min-w-0">
+              {selectedParent ? (
+                <>
+                  <WorkItemTypeBadge type={selectedParent.type} size="compact" />
+                  <span className="truncate">
+                    {selectedParent.displayKey} · {selectedParent.title}
+                  </span>
+                </>
+              ) : (
+                `Selecionar ${label}…`
+              )}
+            </span>
           <MaterialIcon name="arrow_drop_down" className="text-[#6E6E73] dark:text-[#8E8E93] shrink-0" />
         </button>
       )}
@@ -208,13 +224,16 @@ export default function ParentFilterSelector({
                       setQuery("");
                     }}
                     className={[
-                      "w-full text-left px-4 py-2.5 text-sm font-medium truncate transition-colors",
+                      "w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 min-w-0",
                       selectedParentId === p.id
                         ? "bg-accent/10 text-accent"
                         : "text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]",
                     ].join(" ")}
                   >
-                    {p.title}
+                    <WorkItemTypeBadge type={p.type} size="compact" />
+                    <span className="truncate">
+                      {p.displayKey} · {p.title}
+                    </span>
                   </button>
                 </li>
               ))}

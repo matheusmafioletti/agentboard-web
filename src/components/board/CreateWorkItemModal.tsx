@@ -1,9 +1,12 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import useSWR from "swr";
 
-import { boardApi, type CreateWorkItemPayload } from "../../services/boardApi";
+import { boardApi, type CreateWorkItemPayload, type TenantUser } from "../../services/boardApi";
 import MarkdownField from "../shared/MarkdownField";
 import MaterialIcon from "../shared/MaterialIcon";
 import ParentFilterSelector from "./ParentFilterSelector";
+import WorkItemTypeBadge from "../shared/WorkItemTypeBadge";
+import AssigneeAvatar, { emailToDisplayName } from "../shared/AssigneeAvatar";
 
 export type WorkItemType = "FEATURE" | "USER_STORY" | "TASK";
 
@@ -123,9 +126,18 @@ export default function CreateWorkItemModal({
   const [descEditing, setDescEditing] = useState(true);
   const [modalFullscreen, setModalFullscreen] = useState(false);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
+  const [assigneeId, setAssigneeId] = useState<string | undefined>(undefined);
+  const [assigneeMenuOpen, setAssigneeMenuOpen] = useState(false);
+  const assigneeMenuRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const { data: users = [] } = useSWR<TenantUser[]>(
+    "tenant-users",
+    () => boardApi.listUsers(),
+    { revalidateOnFocus: false }
+  );
 
   const titleErrorId = useId();
   const parentErrorId = useId();
@@ -143,6 +155,16 @@ export default function CreateWorkItemModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [modalFullscreen]);
 
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (assigneeMenuRef.current && !assigneeMenuRef.current.contains(e.target as Node)) {
+        setAssigneeMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nextErrors = computeFieldErrors(type, title, description, parentId);
@@ -158,9 +180,12 @@ export default function CreateWorkItemModal({
         title: title.trim(),
         description:
           type === "USER_STORY" ? description.trim() : description.trim() || undefined,
-        parentId,
         priority: 5,
+        assigneeId: assigneeId ?? null,
       };
+      if (type === "USER_STORY" || type === "TASK") {
+        payload.parentId = parentId;
+      }
       await boardApi.createWorkItem(projectId, payload);
       onCreated();
       onClose();
@@ -233,6 +258,88 @@ export default function CreateWorkItemModal({
           {fieldErrors.title}
         </p>
       ) : null}
+    </div>
+  );
+
+  const selectedUser = users.find((u) => u.id === assigneeId);
+
+  const assigneeBlock = (
+    <div className="shrink-0">
+      <p className="text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93] mb-1.5">
+        Responsável
+      </p>
+      <div ref={assigneeMenuRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setAssigneeMenuOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={assigneeMenuOpen}
+          className="w-full h-10 flex items-center gap-2.5 px-3 rounded-chip text-sm font-medium bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
+        >
+          <AssigneeAvatar email={selectedUser?.email ?? null} sizePx={18} />
+          <span className="flex-1 text-left truncate">
+            {selectedUser ? emailToDisplayName(selectedUser.email) : "Sem responsável"}
+          </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className={`shrink-0 text-[#6E6E73] dark:text-[#8E8E93] transition-transform duration-150 ${assigneeMenuOpen ? "rotate-180" : ""}`}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        {assigneeMenuOpen && (
+          <div
+            className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1C1C1E] rounded-card shadow-modal border border-black/[0.08] dark:border-white/[0.08] z-[80] py-1.5"
+            role="listbox"
+            aria-label="Selecionar responsável"
+          >
+            <ul className="max-h-56 overflow-y-auto">
+              <li>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!assigneeId}
+                  onClick={() => { setAssigneeId(undefined); setAssigneeMenuOpen(false); }}
+                  className={[
+                    "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors duration-150",
+                    !assigneeId
+                      ? "bg-accent/[0.08] dark:bg-accent/[0.12] text-accent font-medium"
+                      : "text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                  ].join(" ")}
+                >
+                  <AssigneeAvatar email={null} sizePx={20} />
+                  <span>Sem responsável</span>
+                </button>
+              </li>
+              {users.map((u) => (
+                <li key={u.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={assigneeId === u.id}
+                    onClick={() => { setAssigneeId(u.id); setAssigneeMenuOpen(false); }}
+                    className={[
+                      "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors duration-150",
+                      assigneeId === u.id
+                        ? "bg-accent/[0.08] dark:bg-accent/[0.12] text-accent font-medium"
+                        : "text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                    ].join(" ")}
+                  >
+                    <AssigneeAvatar email={u.email} sizePx={20} />
+                    <span className="truncate">{emailToDisplayName(u.email)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -399,7 +506,10 @@ export default function CreateWorkItemModal({
                 id="create-work-item-heading"
                 className="text-[20px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7] flex-1 min-w-0 pr-2"
               >
-                {TITLE_BY_TYPE[type]}
+                <span className="flex flex-wrap items-center gap-2">
+                  <WorkItemTypeBadge type={type} size="compact" />
+                  <span>{TITLE_BY_TYPE[type]}</span>
+                </span>
               </h2>
               <div className="flex shrink-0 items-center gap-1">
                 {headerIcons}
@@ -408,9 +518,10 @@ export default function CreateWorkItemModal({
             </div>
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 min-w-0">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-6 lg:px-8 gap-4">
-                <div className="flex max-h-[min(240px,42vh)] min-h-0 shrink-0 flex-col gap-4 overflow-y-auto">
+                <div className="flex max-h-[min(280px,42vh)] min-h-0 shrink-0 flex-col gap-4 overflow-y-auto">
                   {parentBlock}
                   {titleBlock}
+                  {assigneeBlock}
                 </div>
                 <div className="flex w-full min-w-0 shrink-0 flex-col">
                   {descSection("create-item-desc-label-fs", true, true, descriptionErrorIdFs)}
@@ -446,7 +557,10 @@ export default function CreateWorkItemModal({
                 id="create-work-item-heading"
                 className="flex-1 min-w-0 pr-2 text-[20px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7]"
               >
-                {TITLE_BY_TYPE[type]}
+                <span className="flex flex-wrap items-center gap-2">
+                  <WorkItemTypeBadge type={type} size="compact" />
+                  <span>{TITLE_BY_TYPE[type]}</span>
+                </span>
               </h2>
               <div className="flex shrink-0 items-center gap-1">
                 {headerIcons}
@@ -462,6 +576,7 @@ export default function CreateWorkItemModal({
                 <div className="flex flex-col gap-4">
                   {parentBlock}
                   {titleBlock}
+                  {assigneeBlock}
                   {descSection(
                     "create-item-desc-label",
                     false,

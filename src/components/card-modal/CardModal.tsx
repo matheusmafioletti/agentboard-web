@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { boardApi, type WorkItemDetail } from "../../services/boardApi";
+import { boardApi, type WorkItemDetail, type TenantUser } from "../../services/boardApi";
 import MarkdownField from "../shared/MarkdownField";
 import MaterialIcon from "../shared/MaterialIcon";
+import WorkItemTypeBadge from "../shared/WorkItemTypeBadge";
+import AssigneeAvatar, { emailToDisplayName } from "../shared/AssigneeAvatar";
 
 const cardDescIconBtn =
   "h-8 w-8 inline-flex items-center justify-center rounded-chip shrink-0 transition-colors " +
@@ -41,18 +43,43 @@ function CardModalBody({
 }: CardModalBodyProps) {
   const [title, setTitle] = useState(detail.title ?? "");
   const [description, setDescription] = useState(detail.description ?? "");
+  const [assigneeId, setAssigneeId] = useState<string>(detail.assigneeId ?? "");
+  const [assigneeMenuOpen, setAssigneeMenuOpen] = useState(false);
+  const assigneeMenuRef = useRef<HTMLDivElement>(null);
   const [descriptionEditing, setDescriptionEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: users = [] } = useSWR<TenantUser[]>(
+    "tenant-users",
+    () => boardApi.listUsers(),
+    { revalidateOnFocus: false }
+  );
+
+  const selectedUser = users.find((u) => u.id === assigneeId);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (assigneeMenuRef.current && !assigneeMenuRef.current.contains(e.target as Node)) {
+        setAssigneeMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
+      const assigneeUpdate = assigneeId
+        ? { id: assigneeId }
+        : { clear: true };
       await boardApi.patchWorkItem(workItemId, {
         title: title.trim(),
         description: description.trim() || "",
+        assignee: assigneeUpdate,
       });
       setDescriptionEditing(false);
       onSaved();
@@ -68,7 +95,14 @@ function CardModalBody({
   const hasDescription = Boolean(descSource.trim());
 
   const titleBlock = (
-    <div className="shrink-0">
+    <div className="shrink-0 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <WorkItemTypeBadge type={detail.type as WorkItemDetail["type"]} size="compact" />
+        <span className="text-[12px] font-semibold text-[#6E6E73] dark:text-[#8E8E93]">
+          {detail.displayKey}
+        </span>
+      </div>
+      <div>
       <label
         htmlFor="card-modal-title"
         className="block text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93] mb-1.5"
@@ -82,6 +116,84 @@ function CardModalBody({
         required
         className="w-full h-10 px-3 rounded-chip text-sm text-[#1D1D1F] dark:text-[#F5F5F7] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] placeholder-[#6E6E73] dark:placeholder-[#8E8E93] focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93] mb-1.5">
+          Responsável
+        </p>
+        <div ref={assigneeMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setAssigneeMenuOpen((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={assigneeMenuOpen}
+            className="w-full h-10 flex items-center gap-2.5 px-3 rounded-chip text-sm font-medium bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
+          >
+            <AssigneeAvatar email={selectedUser?.email ?? null} sizePx={18} />
+            <span className="flex-1 text-left truncate">
+              {selectedUser ? emailToDisplayName(selectedUser.email) : "Sem responsável"}
+            </span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`shrink-0 text-[#6E6E73] dark:text-[#8E8E93] transition-transform duration-150 ${assigneeMenuOpen ? "rotate-180" : ""}`}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          {assigneeMenuOpen && (
+            <div
+              className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1C1C1E] rounded-card shadow-modal border border-black/[0.08] dark:border-white/[0.08] z-[80] py-1.5"
+              role="listbox"
+              aria-label="Selecionar responsável"
+            >
+              <ul className="max-h-56 overflow-y-auto">
+                <li>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={!assigneeId}
+                    onClick={() => { setAssigneeId(""); setAssigneeMenuOpen(false); }}
+                    className={[
+                      "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors duration-150",
+                      !assigneeId
+                        ? "bg-accent/[0.08] dark:bg-accent/[0.12] text-accent font-medium"
+                        : "text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                    ].join(" ")}
+                  >
+                    <AssigneeAvatar email={null} sizePx={20} />
+                    <span>Sem responsável</span>
+                  </button>
+                </li>
+                {users.map((u) => (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={assigneeId === u.id}
+                      onClick={() => { setAssigneeId(u.id); setAssigneeMenuOpen(false); }}
+                      className={[
+                        "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors duration-150",
+                        assigneeId === u.id
+                          ? "bg-accent/[0.08] dark:bg-accent/[0.12] text-accent font-medium"
+                          : "text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                      ].join(" ")}
+                    >
+                      <AssigneeAvatar email={u.email} sizePx={20} />
+                      <span className="truncate">{emailToDisplayName(u.email)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 

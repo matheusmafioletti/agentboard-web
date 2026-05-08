@@ -43,9 +43,9 @@ describe("WorkItemBoard", () => {
 
   it("shows parent prompt when Task tab has no parent in URL", () => {
     render(<WorkItemBoard projectId="proj-1" />, { wrapper: makeWrapper("/board") });
-    fireEvent.click(screen.getByRole("button", { name: /^Task$/i }));
+    fireEvent.click(screen.getByTestId("board-type-tab-TASK"));
     expect(
-      screen.getByText(/Selecione uma User Story no filtro acima/i)
+      screen.getByText(/Selecione uma User Story no painel de filtros/i)
     ).toBeInTheDocument();
   });
 

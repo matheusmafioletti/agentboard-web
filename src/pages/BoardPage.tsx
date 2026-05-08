@@ -16,7 +16,10 @@ export default function BoardPage() {
       </div>
       <main className="animate-page-enter flex-1 overflow-hidden">
         {activeProject ? (
-          <WorkItemBoard projectId={activeProject.id} />
+          <WorkItemBoard
+            projectId={activeProject.id}
+            activeProjectName={activeProject.name}
+          />
         ) : (
           <div className="flex items-center justify-center h-full text-[#6E6E73] dark:text-[#8E8E93] text-sm">
             Selecione um projeto para ver o board.

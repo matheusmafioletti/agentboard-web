@@ -64,17 +64,9 @@ describe("InicioPage (dashboard)", () => {
     );
   });
 
-  it("quick action 'Nova Feature' links to /features", async () => {
+  it("does not show quick actions section", async () => {
     renderPage();
     await waitFor(() => screen.getAllByRole("article"));
-    const link = screen.getByRole("link", { name: /nova feature/i });
-    expect(link).toHaveAttribute("href", "/features");
-  });
-
-  it("quick action 'Nova User Story' links to /user-stories", async () => {
-    renderPage();
-    await waitFor(() => screen.getAllByRole("article"));
-    const link = screen.getByRole("link", { name: /nova user story/i });
-    expect(link).toHaveAttribute("href", "/user-stories");
+    expect(screen.queryByText(/ações rápidas/i)).not.toBeInTheDocument();
   });
 });
