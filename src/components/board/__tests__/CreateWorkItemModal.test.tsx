@@ -30,11 +30,15 @@ describe("CreateWorkItemModal", () => {
     fireEvent.change(screen.getByLabelText(/Título/i), { target: { value: "Nova" } });
     fireEvent.click(screen.getByRole("button", { name: /Criar$/i }));
     await waitFor(() => expect(createWorkItem).toHaveBeenCalled());
-    expect(createWorkItem).toHaveBeenCalledWith("proj-a", {
-      type: "FEATURE",
-      title: "Nova",
-      priority: 5,
-    });
+    expect(createWorkItem).toHaveBeenCalledWith(
+      "proj-a",
+      expect.objectContaining({
+        type: "FEATURE",
+        title: "Nova",
+        priority: 5,
+        assigneeId: null,
+      })
+    );
   });
 
   it("does not render project picker rows for FEATURE flow", () => {

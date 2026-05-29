@@ -20,7 +20,7 @@ describe("WorkItemTypeBadge", () => {
   it("renders outline stroke icons for each type", () => {
     for (const type of ["FEATURE", "USER_STORY", "TASK"] as const) {
       const { container } = render(<WorkItemTypeBadge type={type} />);
-      const strokes = container.querySelectorAll('svg path[stroke="currentColor"]');
+      const strokes = container.querySelectorAll('svg [stroke="currentColor"]');
       expect(strokes.length).toBeGreaterThan(0);
     }
   });

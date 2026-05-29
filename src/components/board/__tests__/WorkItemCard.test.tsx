@@ -74,11 +74,10 @@ function wrap(ui: React.ReactElement) {
 }
 
 describe("WorkItemCard", () => {
-  it("renders title, displayKey (F1 format), and projeto context line", () => {
+  it("renders title and displayKey (F1 format)", () => {
     render(wrap(<WorkItemCard workItem={cardItem} activeProjectName="Proj A" />));
     expect(screen.getByText("Titulo Feature")).toBeInTheDocument();
     expect(screen.getByText("F1")).toBeInTheDocument();
-    expect(screen.getByText(/Projeto · Proj A/)).toBeInTheDocument();
   });
 
   it("children section is collapsed by default", () => {

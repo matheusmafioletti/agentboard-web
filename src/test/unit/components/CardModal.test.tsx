@@ -79,6 +79,7 @@ describe("CardModal — work item Markdown detail", () => {
       expect(boardApi.patchWorkItem).toHaveBeenCalledWith("card-1", {
         title: "Updated Title",
         description: "## Doc\n\nLine",
+        assignee: { clear: true },
       })
     );
     expect(onSaved).toHaveBeenCalled();

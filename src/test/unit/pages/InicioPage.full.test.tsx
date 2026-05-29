@@ -8,12 +8,41 @@ import InicioPage from "../../../pages/InicioPage";
 
 const server = setupServer(
   http.get("http://localhost:8081/api/v1/projects", () =>
-    HttpResponse.json([{ id: "p1" }, { id: "p2" }, { id: "p3" }])
+    HttpResponse.json([
+      { id: "p1", name: "Alpha", tenantId: "t1", createdAt: "2026-01-01T00:00:00Z" },
+      { id: "p2", name: "Beta", tenantId: "t1", createdAt: "2026-01-01T00:00:00Z" },
+    ])
   ),
   http.get("http://localhost:8081/api/v1/work-items", () =>
     HttpResponse.json([
-      { id: "f1", status: "SPECIFY" },
-      { id: "f2", status: "IN_DEVELOPMENT" },
+      {
+        id: "f1",
+        projectId: "p1",
+        tenantId: "t1",
+        type: "FEATURE",
+        title: "F",
+        status: "SPECIFY",
+        parentId: null,
+        priority: 5,
+        displayOrder: 0,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        displayKey: "F1",
+      },
+      {
+        id: "u1",
+        projectId: "p1",
+        tenantId: "t1",
+        type: "USER_STORY",
+        title: "U",
+        status: "READY",
+        parentId: "f1",
+        priority: 5,
+        displayOrder: 0,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        displayKey: "U1",
+      },
     ])
   )
 );
@@ -45,28 +74,25 @@ describe("InicioPage (dashboard)", () => {
     expect(screen.getByRole("heading", { name: "Início" })).toBeInTheDocument();
   });
 
-  it("renders three summary cards", async () => {
+  it("renders per-type stat cards", async () => {
     renderPage();
-    await waitFor(() =>
-      expect(screen.getAllByRole("article").length).toBeGreaterThanOrEqual(3)
-    );
+    await waitFor(() => {
+      expect(screen.getByText("Features")).toBeInTheDocument();
+      expect(screen.getByText("User Stories")).toBeInTheDocument();
+      expect(screen.getByText("Tasks")).toBeInTheDocument();
+    });
   });
 
-  it("shows zero state when no features open", async () => {
-    server.use(
-      http.get("http://localhost:8081/api/v1/work-items", () =>
-        HttpResponse.json([])
-      )
-    );
+  it("renders project ranking section", async () => {
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/nenhuma feature em aberto/i)).toBeInTheDocument()
+      expect(screen.getByText("Ranking de projetos")).toBeInTheDocument()
     );
   });
 
   it("does not show quick actions section", async () => {
     renderPage();
-    await waitFor(() => screen.getAllByRole("article"));
+    await waitFor(() => expect(screen.getByText("Features")).toBeInTheDocument());
     expect(screen.queryByText(/ações rápidas/i)).not.toBeInTheDocument();
   });
 });

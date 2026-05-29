@@ -41,12 +41,13 @@ describe("WorkItemBoard", () => {
     expect(screen.getByText(/Feature/i)).toBeInTheDocument();
   });
 
-  it("shows parent prompt when Task tab has no parent in URL", () => {
+  it("shows User Story parent filter when Task tab filters panel is open", () => {
     render(<WorkItemBoard projectId="proj-1" />, { wrapper: makeWrapper("/board") });
     fireEvent.click(screen.getByTestId("board-type-tab-TASK"));
-    expect(
-      screen.getByText(/Selecione uma User Story no painel de filtros/i)
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /painel de filtros/i }));
+    expect(screen.getByRole("button", { name: /filtrar por item pai/i })).toHaveTextContent(
+      /User Story/i
+    );
   });
 
   it("shows TASK columns when parentId is present in URL", () => {
