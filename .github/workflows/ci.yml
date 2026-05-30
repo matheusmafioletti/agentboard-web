@@ -65,8 +65,8 @@ jobs:
           file: Dockerfile
           push: true
           build-args: |
-            VITE_AUTH_SERVICE_URL=${{ secrets.DEMO_PUBLIC_URL }}
-            VITE_BOARD_SERVICE_URL=${{ secrets.DEMO_PUBLIC_URL }}
+            VITE_AUTH_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
+            VITE_BOARD_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
@@ -81,12 +81,12 @@ jobs:
       - name: Deploy web on VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            cd "${{ vars.VPS_DEPLOY_PATH }}"
             export WEB_IMAGE_TAG=${{ github.sha }}
             docker compose --env-file .env.prod -f docker-compose.prod.yml pull agentboard-web
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d agentboard-web nginx
