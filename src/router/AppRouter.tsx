@@ -3,6 +3,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useSessionGuard } from "../hooks/useSessionGuard";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import AcceptInvitePage from "../pages/AcceptInvitePage";
+import UsuariosPage from "../pages/UsuariosPage";
+import AdminRoute from "../components/auth/AdminRoute";
 import InicioPage from "../pages/InicioPage";
 import ProjetosPage from "../pages/ProjetosPage";
 import ProjectDetailPage from "../pages/ProjectDetailPage";
@@ -37,6 +40,7 @@ export default function AppRouter() {
         {/* Public auth routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/invite/:token" element={<AcceptInvitePage />} />
 
         {/* Protected routes — wrapped in AppShell */}
         <Route
@@ -72,6 +76,16 @@ export default function AppRouter() {
         <Route
           path="/features/:featureId/user-stories"
           element={<Navigate to="/board?type=USER_STORY" replace />}
+        />
+        <Route
+          path="/usuarios"
+          element={
+            <ShellRoute>
+              <AdminRoute>
+                <UsuariosPage />
+              </AdminRoute>
+            </ShellRoute>
+          }
         />
         <Route
           path="/projetos"

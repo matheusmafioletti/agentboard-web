@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "../../../hooks/useAuth";
 
-vi.mock("../../../services/authApi", () => ({
-  login: vi.fn(),
-  register: vi.fn(),
-}));
+vi.mock("../../../services/authApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../services/authApi")>();
+  return {
+    ...actual,
+    login: vi.fn(),
+    register: vi.fn(),
+  };
+});
 
 import * as authApi from "../../../services/authApi";
 
@@ -14,6 +18,7 @@ const mockRegister = vi.mocked(authApi.register);
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -28,6 +33,10 @@ describe("useAuth", () => {
       token: "jwt-token",
       userId: "user-1",
       tenantId: "tenant-1",
+      email: "a@b.com",
+      name: "User",
+      tenantName: "WS",
+      role: "ADMIN",
     });
 
     const { result } = renderHook(() => useAuth());
@@ -47,8 +56,9 @@ describe("useAuth", () => {
       token: "jwt-register",
       userId: "user-2",
       tenantId: "tenant-2",
+      tenantName: "Corp",
+      role: "ADMIN",
       apiKey: "raw-key",
-      board: { id: "board-1", name: "My Board" },
     });
 
     const { result } = renderHook(() => useAuth());
@@ -71,6 +81,10 @@ describe("useAuth", () => {
       token: "jwt-token",
       userId: "user-1",
       tenantId: "tenant-1",
+      email: "a@b.com",
+      name: "User",
+      tenantName: "WS",
+      role: "ADMIN",
     });
 
     const { result } = renderHook(() => useAuth());
@@ -90,7 +104,15 @@ describe("useAuth", () => {
   });
 
   it("restores user from localStorage on hook initialisation", () => {
-    const stored = { userId: "u1", tenantId: "t1", token: "stored-jwt" };
+    const stored = {
+      userId: "u1",
+      tenantId: "t1",
+      token: "stored-jwt",
+      email: "a@b.com",
+      name: "User",
+      tenantName: "WS",
+      role: "ADMIN" as const,
+    };
     localStorage.setItem("agentboard_user", JSON.stringify(stored));
 
     const { result } = renderHook(() => useAuth());

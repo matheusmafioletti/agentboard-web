@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
+import SwitchWorkspaceModal from "../auth/SwitchWorkspaceModal";
 
 interface ProfileButtonProps {
   expanded: boolean;
@@ -64,10 +65,11 @@ export default function ProfileButton({ expanded }: ProfileButtonProps) {
   const { isDark, toggle: toggleDark } = useDarkMode();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showSwitchWorkspace, setShowSwitchWorkspace] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const initials = user ? deriveInitials(user.email) : "?";
-  const displayName = user ? deriveDisplayName(user.email) : "Usuário";
+  const displayName = user?.name ?? (user ? deriveDisplayName(user.email) : "Usuário");
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -143,6 +145,15 @@ export default function ProfileButton({ expanded }: ProfileButtonProps) {
           <button
             onClick={() => {
               setOpen(false);
+              setShowSwitchWorkspace(true);
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
+          >
+            Trocar workspace
+          </button>
+          <button
+            onClick={() => {
+              setOpen(false);
               setShowChangePassword(true);
             }}
             className="w-full text-left px-4 py-2.5 text-sm text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
@@ -157,6 +168,12 @@ export default function ProfileButton({ expanded }: ProfileButtonProps) {
           </button>
         </div>
       )}
+
+      {showSwitchWorkspace &&
+        createPortal(
+          <SwitchWorkspaceModal onClose={() => setShowSwitchWorkspace(false)} />,
+          document.body
+        )}
 
       {showChangePassword &&
         createPortal(

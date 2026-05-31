@@ -1,40 +1,30 @@
-# TEST_STRATEGY.md — agentboard-web
+# agentboard-web — Test Strategy (Feature 010)
 
-## Owned automated tests
+## Layers
 
-| Area | Location | Notes |
-|------|----------|--------|
-| MarkdownField (sanitize, split, preview-only, fullscreen toggle) | `src/components/shared/__tests__/MarkdownField.test.tsx` | Vitest + Testing Library |
+| Layer | Scope | Tooling |
+|-------|--------|---------|
+| Unit | `TenantPicker`, `AdminRoute`, `SwitchWorkspaceModal`, `CreateInviteModal`, invite wizard | Vitest, Testing Library, jsdom, MSW |
+| E2E | Multitenant login, invite flows, workspace switch | Playwright (`agentboard-e2e`) |
 
-## Manual regressions (Markdown descriptions)
+## Key test files
 
-1. Create work item: type `**bold**` and a list; confirm preview updates before save; fullscreen on/off without losing text; save and reopen from board card.
-2. Card detail: open item → read-only preview equals editor preview; Edit description → split panes → save → read-only updates.
-3. Paste untrusted HTML/script fragments; confirm source text is kept in editor but preview does not execute scripts.
-4. Non-ASCII and punctuation (`*_[]`, accented characters) survive save → GET round-trip (covered in `WorkItemControllerIT#patchWorkItem_preservesMarkdownDescriptionRoundTripThroughGetDetail`).
-5. Kanban: drag still works from the grip icon; title click opens detail modal.
+- `src/test/unit/components/auth/TenantPicker.test.tsx`
+- `src/test/unit/components/auth/SwitchWorkspaceModal.test.tsx`
+- `src/hooks/useAuth.test.ts`
 
-## Out of scope today
+## Run commands
 
-- Dashboard / list views do not render work item bodies; no change required until those surfaces show `description`.
+```bash
+cd repos/agentboard-web
+npm test
+npm run lint
+```
 
-## Feature 009 notes
+Auth API calls are mocked via `vi.mock` on `../services/authApi` or MSW handlers in component tests.
 
-| Risk | Coverage |
-|------|----------|
-| `displayKey` format change breaking card display | All test fixtures migrated to `F1`/`U2`/`T3` style; `WorkItemCard.test.tsx` asserts `F1` renders |
-| Children section not collapsed by default | `WorkItemCard.test.tsx` asserts children hidden on load, toggle expands/collapses |
-| Type color regression (Feature purple, US green, Task amber) | `workItemTypeTokens.ts` updated; manual pass on board in light+dark mode |
-| Left border stripe missing on card | `WorkItemCard.tsx` applies `border-l-4 + WORK_ITEM_TYPE_BORDER`; visual regression manual |
-| ProjectDetailPage still shows fullscreen toggle or preview in edit mode | `ProjectDetailPage.test.tsx` asserts `markdown-fullscreen-enter` and `markdown-preview-pane` absent during edit |
-| ProjectDetailPage narrow `max-w-3xl` layout persists | Removed from component; page uses `flex-1 min-w-0` |
+## New flows covered
 
-## Feature 008 — type badges, hierarchy, Items tree
-
-| Risk | Coverage |
-|------|----------|
-| Board cards missing `displayKey` / broken layout with expand + child-board navigation | Vitest `WorkItemCard`; manual Kanban FEATURE→US→TASK chain |
-| `includeParent=false` regressions exploding list payloads | API default false; board SWR passes `includeParent` only for US/TASK filtered views |
-| Items page tree vs flat diverge | Vitest `ItemsListView`; Playwright smoke `tests/items/work-items-navigation.spec.ts` |
-| Dark-mode contrast on violet/amber badges | Manual pass on `WorkItemTypeBadge` surfaces + Card modal |
-
+- Admin **Novo convite** modal (generate link + copy)
+- Public `/invite/:token` wizard (identify → register/login steps → accept)
+- Profile **Trocar workspace** modal (`listMyMemberships`, `switchTenant`, `createTenant`)

@@ -30,7 +30,9 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status;
       setError(
-        status === 409 ? "E-mail já cadastrado." : "Falha no cadastro. Tente novamente."
+        status === 409
+          ? "E-mail já cadastrado. Faça login para acessar sua conta."
+          : "Falha no cadastro. Tente novamente."
       );
     } finally {
       setLoading(false);

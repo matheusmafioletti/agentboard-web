@@ -21,7 +21,8 @@ export default function ProjectSelector() {
           className="flex items-center gap-2 h-8 px-3 rounded-chip border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] text-sm font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
         >
           <span className="max-w-[160px] truncate">
-            {activeProject?.name ?? "Selecione um projeto…"}
+            {activeProject?.name ??
+              (projects.length === 0 ? "Nenhum projeto cadastrado" : "Selecione um projeto…")}
           </span>
           <svg
             className={`w-3.5 h-3.5 transition-transform shrink-0 text-[#6E6E73] dark:text-[#8E8E93] ${open ? "rotate-180" : ""}`}
@@ -52,7 +53,7 @@ export default function ProjectSelector() {
               ))}
               {projects.length === 0 && (
                 <li className="px-4 py-2 text-sm text-[#6E6E73] dark:text-[#8E8E93]">
-                  Nenhum projeto
+                  Nenhum projeto cadastrado
                 </li>
               )}
             </ul>

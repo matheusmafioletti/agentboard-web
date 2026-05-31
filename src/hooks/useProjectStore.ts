@@ -27,6 +27,13 @@ function setProjectId(id: string): void {
   for (const l of listeners) l();
 }
 
+/** Clears the active project selection (e.g. when switching workspace). */
+export function clearActiveProject(): void {
+  sessionStorage.removeItem(SESSION_KEY);
+  activeProjectId = null;
+  for (const l of listeners) l();
+}
+
 /**
  * Provides project list and the active project selection backed by sessionStorage.
  *
@@ -45,10 +52,11 @@ export function useProjectStore() {
     setProjectId(id);
   }, []);
 
-  const effectiveProjectId =
-    storedId ?? (projects.length > 0 ? projects[0].id : null);
-  const activeProject =
-    projects.find((p) => p.id === effectiveProjectId) ?? null;
+  const activeProject = storedId
+    ? projects.find((p) => p.id === storedId) ?? null
+    : projects.length > 0
+      ? projects[0]
+      : null;
 
   return { projects, activeProject, setActiveProject, mutate };
 }

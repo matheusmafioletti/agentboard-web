@@ -69,7 +69,9 @@ describe("ProjetosPage", () => {
     server.use(http.get("http://localhost:8081/api/v1/projects", () => HttpResponse.json([])));
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/nenhum projeto cadastrado/i)).toBeInTheDocument()
+      expect(
+        screen.getByText(/ainda não existe nenhum projeto cadastrado/i)
+      ).toBeInTheDocument()
     );
   });
 

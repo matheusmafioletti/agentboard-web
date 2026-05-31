@@ -1,4 +1,5 @@
 import { useSidebarState } from "../../hooks/useSidebarState";
+import { useAuth } from "../../hooks/useAuth";
 import NavItem from "./NavItem";
 import ProfileButton from "./ProfileButton";
 
@@ -61,16 +62,32 @@ function PanelLeftOpenIcon() {
   );
 }
 
+function UsersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { icon: <HomeIcon />, label: "Início", to: "/inicio" },
   { icon: <BoardIcon />, label: "Board", to: "/board" },
   { icon: <ItemsIcon />, label: "Itens", to: "/itens" },
   { icon: <ProjectsIcon />, label: "Projetos", to: "/projetos" },
+  { icon: <UsersIcon />, label: "Usuários", to: "/usuarios", adminOnly: true },
 ];
 
 /** Collapsible left sidebar with frosted glass surface, navigation items, and pinned profile button. */
 export default function AppSidebar() {
   const { expanded, toggle } = useSidebarState();
+  const { user } = useAuth();
+  const visibleNav = NAV_ITEMS.filter(
+    (item) => !("adminOnly" in item && item.adminOnly) || user?.role === "ADMIN"
+  );
 
   return (
     <aside
@@ -84,12 +101,22 @@ export default function AppSidebar() {
       ].join(" ")}
     >
       {/* Sidebar toggle */}
-      <div className={["flex items-center px-3 pt-3 pb-1", expanded ? "justify-end" : "justify-center"].join(" ")}>
+      <div
+        className={[
+          "flex items-center px-3 pt-3 pb-1",
+          expanded ? "justify-between gap-2" : "justify-center",
+        ].join(" ")}
+      >
+        {expanded && (
+          <span className="text-[15px] font-semibold tracking-heading text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+            AgentBoard
+          </span>
+        )}
         <button
           onClick={toggle}
           aria-label={expanded ? "Recolher menu" : "Expandir menu"}
           title={expanded ? "Recolher menu" : "Expandir menu"}
-          className="p-1.5 rounded-chip text-[#6E6E73] dark:text-[#8E8E93] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
+          className="shrink-0 p-1.5 rounded-chip text-[#6E6E73] dark:text-[#8E8E93] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-150"
         >
           {expanded ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
         </button>
@@ -97,7 +124,7 @@ export default function AppSidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 px-2 py-2 space-y-0.5">
-        {NAV_ITEMS.map((item) => (
+        {visibleNav.map((item) => (
           <NavItem
             key={item.to}
             icon={item.icon}

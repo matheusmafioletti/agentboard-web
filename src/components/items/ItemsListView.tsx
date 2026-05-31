@@ -162,7 +162,7 @@ function ItemsTreeView({
   return (
     <div
       data-testid="items-tree-root"
-      className="rounded-card border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#141418] p-4 shadow-card"
+      className="rounded-card border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] p-4 shadow-card"
     >
       {roots.length === 0 ? (
         <p className="text-sm text-[#6E6E73] dark:text-[#8E8E93] font-medium py-8 text-center">
@@ -604,10 +604,10 @@ export default function ItemsListView({ projectId }: ItemsListViewProps) {
           </div>
         )
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-card border border-black/[0.08] dark:border-white/[0.08] shadow-card">
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-card border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] shadow-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F5F5F7] dark:bg-[#141418]">
+              <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#1C1C1E]">
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-caps text-[#6E6E73] dark:text-[#8E8E93] w-36">
                   ID
                 </th>

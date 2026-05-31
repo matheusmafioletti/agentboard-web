@@ -7,7 +7,9 @@ import MarkdownField from "../components/shared/MarkdownField";
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <p className="text-[#6E6E73] dark:text-[#8E8E93] text-sm mb-4">Nenhum projeto cadastrado</p>
+      <p className="text-[#6E6E73] dark:text-[#8E8E93] text-sm mb-4">
+        Ainda não existe nenhum projeto cadastrado.
+      </p>
       <button
         onClick={onNew}
         className="h-9 px-5 text-sm font-medium text-white bg-accent rounded-full hover:brightness-110 transition-all duration-[120ms]"

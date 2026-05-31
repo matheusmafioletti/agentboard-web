@@ -29,7 +29,7 @@ export default function WorkItemColumn({
       ref={setNodeRef}
       className={[
         "flex flex-col flex-shrink-0 w-[220px] rounded-card",
-        "bg-[#F2F2F7] dark:bg-[#1C1C1E]",
+        "bg-white dark:bg-[#1C1C1E]",
         "transition-colors duration-150",
         isOver && !isAutoOnly ? "ring-2 ring-accent/40" : "",
       ].join(" ")}
