@@ -46,8 +46,8 @@ In the demo environment both point to the same public origin (nginx routes `/aut
 
 ```bash
 docker build \
-  --build-arg VITE_AUTH_SERVICE_URL=https://demo.example.com \
-  --build-arg VITE_BOARD_SERVICE_URL=https://demo.example.com \
+  --build-arg VITE_AUTH_SERVICE_URL=https://agentboard.matheusmafioletti.com \
+  --build-arg VITE_BOARD_SERVICE_URL=https://agentboard.matheusmafioletti.com \
   -t agentboard-web:local .
 ```
 
@@ -55,7 +55,7 @@ Image published to GHCR on push to `main`: `ghcr.io/agentboard/agentboard-web`.
 
 ## Deploy (demo VPS)
 
-Requires GitHub Secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_DEPLOY_PATH`, `DEMO_PUBLIC_URL`.
+Requires GitHub Secret `INFRA_DEPLOY_PAT` and variable `DEMO_PUBLIC_URL` (`https://agentboard.matheusmafioletti.com`).
 
 ## Architecture
 
