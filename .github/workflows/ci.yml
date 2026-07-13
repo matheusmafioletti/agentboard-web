@@ -59,7 +59,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push web
+      - name: Build and push web (demo)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -72,6 +72,19 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
 
+      - name: Build and push web (e2e)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH_SERVICE_URL=http://localhost:8080
+            VITE_BOARD_SERVICE_URL=http://localhost:8080
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
+
       - name: Trigger infra deploy
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -81,4 +94,97 @@ jobs:
           client-payload: |
             {
               "web_tag": "${{ github.sha }}"
+            }
+
+  publish-preview:
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web preview (demo URLs)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL || 'https://agentboard.matheusmafioletti.com' }}
+            VITE_BOARD_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL || 'https://agentboard.matheusmafioletti.com' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
+
+      - name: Build and push web preview (e2e)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH_SERVICE_URL=http://localhost:8080
+            VITE_BOARD_SERVICE_URL=http://localhost:8080
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
+
+      - name: Trigger Playwright E2E
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.E2E_TRIGGER_PAT }}
+          repository: matheusmafioletti/agentboard-e2e-playwright
+          event-type: e2e-app-pr
+          client-payload: |
+            {
+              "auth_tag": "latest",
+              "board_tag": "latest",
+              "api_docs_tag": "latest",
+              "web_tag": "e2e-${{ github.sha }}",
+              "source_repo": "${{ github.repository }}",
+              "pr_number": ${{ github.event.pull_request.number }}
+            }
+
+      - name: Trigger Cypress E2E
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.E2E_TRIGGER_PAT }}
+          repository: matheusmafioletti/agentboard-e2e-cypress
+          event-type: e2e-app-pr
+          client-payload: |
+            {
+              "auth_tag": "latest",
+              "board_tag": "latest",
+              "api_docs_tag": "latest",
+              "web_tag": "e2e-${{ github.sha }}",
+              "source_repo": "${{ github.repository }}",
+              "pr_number": ${{ github.event.pull_request.number }}
+            }
+
+      - name: Trigger Selenium E2E
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.E2E_TRIGGER_PAT }}
+          repository: matheusmafioletti/agentboard-e2e-selenium
+          event-type: e2e-app-pr
+          client-payload: |
+            {
+              "auth_tag": "latest",
+              "board_tag": "latest",
+              "api_docs_tag": "latest",
+              "web_tag": "e2e-${{ github.sha }}",
+              "source_repo": "${{ github.repository }}",
+              "pr_number": ${{ github.event.pull_request.number }}
             }
