@@ -141,50 +141,74 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
 
-      - name: Trigger Playwright E2E
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.INFRA_DEPLOY_PAT }}
-          repository: matheusmafioletti/agentboard-e2e-playwright
-          event-type: e2e-app-pr
-          client-payload: |
-            {
-              "auth_tag": "latest",
-              "board_tag": "latest",
-              "api_docs_tag": "latest",
-              "web_tag": "e2e-${{ github.sha }}",
-              "source_repo": "${{ github.repository }}",
-              "pr_number": ${{ github.event.pull_request.number }}
-            }
+  e2e-playwright:
+    needs: publish-preview
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      E2E_REPO: matheusmafioletti/agentboard-e2e-playwright
+      INFRA_REPO: matheusmafioletti/agentboard-infra
 
-      - name: Trigger Cypress E2E
-        uses: peter-evans/repository-dispatch@v4
+    steps:
+      - name: Checkout Playwright tests
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.INFRA_DEPLOY_PAT }}
-          repository: matheusmafioletti/agentboard-e2e-cypress
-          event-type: e2e-app-pr
-          client-payload: |
-            {
-              "auth_tag": "latest",
-              "board_tag": "latest",
-              "api_docs_tag": "latest",
-              "web_tag": "e2e-${{ github.sha }}",
-              "source_repo": "${{ github.repository }}",
-              "pr_number": ${{ github.event.pull_request.number }}
-            }
+          repository: ${{ env.E2E_REPO }}
 
-      - name: Trigger Selenium E2E
-        uses: peter-evans/repository-dispatch@v4
+      - name: Checkout infra
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.INFRA_DEPLOY_PAT }}
-          repository: matheusmafioletti/agentboard-e2e-selenium
-          event-type: e2e-app-pr
-          client-payload: |
-            {
-              "auth_tag": "latest",
-              "board_tag": "latest",
-              "api_docs_tag": "latest",
-              "web_tag": "e2e-${{ github.sha }}",
-              "source_repo": "${{ github.repository }}",
-              "pr_number": ${{ github.event.pull_request.number }}
-            }
+          repository: ${{ env.INFRA_REPO }}
+          path: agentboard-infra
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start E2E stack
+        working-directory: agentboard-infra
+        env:
+          AUTH_IMAGE_TAG: latest
+          BOARD_IMAGE_TAG: latest
+          API_DOCS_IMAGE_TAG: latest
+          WEB_IMAGE_TAG: e2e-${{ github.sha }}
+        run: |
+          cp .env.e2e.example .env.e2e
+          chmod +x scripts/*.sh
+          ./scripts/e2e-up.sh
+          ./scripts/seed-e2e-data.sh
+
+      - name: Run @local tests
+        env:
+          ENVIRONMENT: e2e
+          TEST_TAGS: "@local"
+          CI: true
+        run: npm run test:local -- --project=chromium
+
+      - name: Tear down E2E stack
+        if: always()
+        working-directory: agentboard-infra
+        run: ./scripts/e2e-down.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
