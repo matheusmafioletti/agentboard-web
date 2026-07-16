@@ -73,8 +73,7 @@ Four workflows run on pull requests, pushes, and after deploy:
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| **CI** | `pull_request` → `develop`/`main` | Lint, typecheck, test+coverage, build, publish preview images |
-| **Pre-merge** | `pull_request` → `develop`/`main` (waits for CI success) | Playwright + Cypress + Selenium `@local` suite with PR web image |
+| **CI** | `pull_request` → `develop`/`main` | Lint, typecheck, test+coverage, build, publish preview images, E2E suite |
 | **CD** | `push` → `develop`/`main` | Build, publish GHCR images (`develop`), deploy (`develop`), production simulation (`main`) |
 | **Post-deploy** | `repository_dispatch` `post-deploy-verify` or manual | Staging smoke across all E2E frameworks |
 
@@ -82,15 +81,18 @@ Four workflows run on pull requests, pushes, and after deploy:
 
 Configure these status checks on `develop` (and `main` if applicable):
 
-**CI workflow (runs on every PR push):**
+**`develop` (integration branch — same as backend):**
 
 - `build`
-
-**Pre-merge workflow (runs after CI succeeds):**
-
 - `e2e-playwright`
 - `e2e-cypress`
 - `e2e-selenium`
+
+**`main` (production branch):**
+
+- `build`
+
+E2E jobs run inside the CI workflow only after `build` and `publish-preview` succeed (`needs` chain).
 
 ### GitHub Secrets
 
