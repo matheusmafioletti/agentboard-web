@@ -69,6 +69,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -90,7 +92,7 @@ jobs:
             VITE_AUTH_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL || 'https://agentboard.matheusmafioletti.com' }}
             VITE_BOARD_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL || 'https://agentboard.matheusmafioletti.com' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.event.pull_request.head.sha }}
 
       - name: Build and push web preview (e2e)
         uses: docker/build-push-action@v6
@@ -102,4 +104,4 @@ jobs:
             VITE_AUTH_SERVICE_URL=http://localhost:8080
             VITE_BOARD_SERVICE_URL=http://localhost:8080
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.event.pull_request.head.sha }}
