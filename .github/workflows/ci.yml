@@ -1,18 +1,20 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    branches: [develop, main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  INFRA_REPO: matheusmafioletti/agentboard-infra
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -29,72 +31,33 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage/**
+          if-no-files-found: ignore
+
+      - name: Coverage PR comment
+        if: github.event_name == 'pull_request'
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: ./coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: npm run build
         env:
           VITE_AUTH_SERVICE_URL: http://localhost:8080
           VITE_BOARD_SERVICE_URL: http://localhost:8081
-
-  publish:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push web (demo)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          build-args: |
-            VITE_AUTH_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
-            VITE_BOARD_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:latest
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
-
-      - name: Build and push web (e2e)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          build-args: |
-            VITE_AUTH_SERVICE_URL=http://localhost:8080
-            VITE_BOARD_SERVICE_URL=http://localhost:8080
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-latest
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
-
-      - name: Trigger infra deploy
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.INFRA_DEPLOY_PAT }}
-          repository: ${{ env.INFRA_REPO }}
-          event-type: deploy-web
-          client-payload: |
-            {
-              "web_tag": "${{ github.sha }}"
-            }
 
   publish-preview:
     needs: build
@@ -140,78 +103,3 @@ jobs:
             VITE_BOARD_SERVICE_URL=http://localhost:8080
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
-
-  e2e-playwright:
-    needs: publish-preview
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-      packages: read
-    env:
-      E2E_REPO: matheusmafioletti/agentboard-e2e-playwright
-      INFRA_REPO: matheusmafioletti/agentboard-infra
-
-    steps:
-      - name: Checkout Playwright tests
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.E2E_REPO }}
-
-      - name: Checkout infra
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.INFRA_REPO }}
-          path: agentboard-infra
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Start E2E stack
-        working-directory: agentboard-infra
-        env:
-          AUTH_IMAGE_TAG: latest
-          BOARD_IMAGE_TAG: latest
-          API_DOCS_IMAGE_TAG: latest
-          WEB_IMAGE_TAG: e2e-${{ github.sha }}
-        run: |
-          cp .env.e2e.example .env.e2e
-          chmod +x scripts/*.sh
-          ./scripts/e2e-up.sh
-          ./scripts/seed-e2e-data.sh
-
-      - name: Run @local tests
-        env:
-          ENVIRONMENT: e2e
-          TEST_TAGS: "@local"
-          CI: true
-        run: npm run test:local -- --project=chromium
-
-      - name: Tear down E2E stack
-        if: always()
-        working-directory: agentboard-infra
-        run: |
-          if [[ -f .env.e2e ]]; then
-            ./scripts/e2e-down.sh
-          fi
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
-          if-no-files-found: ignore

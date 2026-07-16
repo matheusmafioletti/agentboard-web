@@ -1,0 +1,152 @@
+name: CD
+
+on:
+  push:
+    branches: [develop, main]
+
+env:
+  REGISTRY: ghcr.io
+  INFRA_REPO: matheusmafioletti/agentboard-infra
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      src_changed: ${{ steps.changes.outputs.src }}
+      build_changed: ${{ steps.changes.outputs.build_config }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            src:
+              - 'src/**'
+            build_config:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'tailwind.config.ts'
+              - 'postcss.config.js'
+              - 'index.html'
+              - 'Dockerfile'
+              - 'nginx.default.conf'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage/**
+          if-no-files-found: ignore
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_AUTH_SERVICE_URL: http://localhost:8080
+          VITE_BOARD_SERVICE_URL: http://localhost:8081
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web (demo)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
+            VITE_BOARD_SERVICE_URL=${{ vars.DEMO_PUBLIC_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:${{ github.sha }}
+
+      - name: Build and push web (e2e)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH_SERVICE_URL=http://localhost:8080
+            VITE_BOARD_SERVICE_URL=http://localhost:8080
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/agentboard-web:e2e-${{ github.sha }}
+
+  deploy:
+    needs: [build, publish]
+    if: |
+      github.ref == 'refs/heads/develop' &&
+      (needs.build.outputs.src_changed == 'true' ||
+       needs.build.outputs.build_changed == 'true')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger infra deploy
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.INFRA_DEPLOY_PAT }}
+          repository: ${{ env.INFRA_REPO }}
+          event-type: deploy-web
+          client-payload: |
+            {
+              "deploy_sha": "${{ github.sha }}",
+              "web_tag": "${{ github.sha }}"
+            }
+
+  production-simulation:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Simulate production release
+        run: |
+          echo "Production simulation — no deploy will be triggered."
+          echo "Would publish and deploy with tag:"
+          echo "  web_tag: ${{ needs.build.outputs.src_changed == 'true' || needs.build.outputs.build_changed == 'true' && github.sha || 'unchanged' }}"
