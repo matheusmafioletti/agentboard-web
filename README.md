@@ -2,7 +2,7 @@
 
 React 18 + Vite 5 + Tailwind CSS 3 frontend for AgentBoard.
 
-![CI](https://github.com/agentboard/agentboard-web/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/matheusmafioletti/agentboard-web/actions/workflows/ci.yml/badge.svg)
 
 ## Prerequisites
 
@@ -25,6 +25,12 @@ npm run dev
 
 # Run tests
 npm test
+
+# Run tests with coverage gate
+npm run test:coverage
+
+# Typecheck (tsc --noEmit)
+npm run typecheck
 
 # Lint
 npm run lint
@@ -51,11 +57,64 @@ docker build \
   -t agentboard-web:local .
 ```
 
-Image published to GHCR on push to `main`: `ghcr.io/agentboard/agentboard-web`.
+Images published to GHCR: `ghcr.io/<owner>/agentboard-web` (`latest`, `e2e-latest`, `<sha>`, `e2e-<sha>`).
 
 ## Deploy (demo VPS)
 
+On push to `develop`, the **CD** workflow builds, pushes images to GHCR, and dispatches `deploy-web` to [agentboard-infra](https://github.com/matheusmafioletti/agentboard-infra). After a successful deploy, infra dispatches `post-deploy-verify` to run staging smoke tests.
+
+Push to `main` runs a production simulation only (no deploy).
+
 Requires GitHub Secret `INFRA_DEPLOY_PAT` and variable `DEMO_PUBLIC_URL` (`https://agentboard.matheusmafioletti.com`).
+
+## CI/CD pipeline
+
+Four workflows run on pull requests, pushes, and after deploy:
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| **CI** | `pull_request` → `develop`/`main` | Lint, typecheck, test+coverage, build, publish preview images |
+| **Pre-merge** | `pull_request` → `develop`/`main` (waits for CI success) | Playwright + Cypress + Selenium `@local` suite with PR web image |
+| **CD** | `push` → `develop`/`main` | Build, publish GHCR images (`develop`), deploy (`develop`), production simulation (`main`) |
+| **Post-deploy** | `repository_dispatch` `post-deploy-verify` or manual | Staging smoke across all E2E frameworks |
+
+### Branch protection — required checks
+
+Configure these status checks on `develop` (and `main` if applicable):
+
+**CI workflow (runs on every PR push):**
+
+- `build`
+
+**Pre-merge workflow (runs after CI succeeds):**
+
+- `e2e-playwright`
+- `e2e-cypress`
+- `e2e-selenium`
+
+### GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `INFRA_DEPLOY_PAT` | PAT with `repo` scope — dispatches deploy/rollback to `agentboard-infra` |
+| `QA_REPORTS_PAT` | PAT with `contents: write` on `agentboard-qa-reports` — publishes test reports to GitHub Pages |
+| `E2E_STAGING_USER_EMAIL` | Staging smoke user email (post-deploy workflow) |
+| `E2E_STAGING_USER_PASSWORD` | Staging smoke user password (post-deploy workflow) |
+
+### GitHub Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DEMO_PUBLIC_URL` | Public demo URL baked into production Docker images |
+| `BASE_URL` | Staging base URL for post-deploy E2E (`https://agentboard.matheusmafioletti.com`) |
+
+### QA reports portal
+
+Test reports are published to [agentboard-qa-reports](https://github.com/matheusmafioletti/agentboard-qa-reports) GitHub Pages (`publish-reports-pr` / `publish-reports-staging`). Requires `QA_REPORTS_PAT` secret.
+
+### E2E stack composite action
+
+`.github/actions/e2e-stack` checks out `agentboard-infra`, logs into GHCR, and runs `e2e-up.sh` / `seed-e2e-data.sh` or `e2e-down.sh`. Pre-merge uses `web_tag=e2e-<pr-sha>` with stable backend `latest` images.
 
 ## Architecture
 
