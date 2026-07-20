@@ -4,6 +4,19 @@ React 18 + Vite 5 + Tailwind CSS 3 frontend for AgentBoard.
 
 ![CI](https://github.com/matheusmafioletti/agentboard-web/actions/workflows/ci.yml/badge.svg)
 
+**Demo:** https://agentboard.matheusmafioletti.com  
+**Stack:** React 18 · Vite 5 · Tailwind CSS 3 · SWR · @dnd-kit
+
+## Screenshots
+
+| Light mode | Dark mode |
+|---|---|
+| ![Kanban light mode](docs/screenshots/kanban-light.webp) | ![Kanban dark mode](docs/screenshots/kanban-dark.webp) |
+
+| Sidebar navigation | Work item detail |
+|---|---|
+| ![Sidebar navigation](docs/screenshots/sidebar-nav.webp) | ![Work item modal](docs/screenshots/work-item-modal.webp) |
+
 ## Prerequisites
 
 | Tool | Version |
@@ -120,7 +133,67 @@ Test reports are published to [agentboard-qa-reports](https://github.com/matheus
 
 ## Architecture
 
+```
+src/
+├── services/
+│   ├── boardApi.ts   ← board/project/work-item HTTP + domain types
+│   └── authApi.ts    ← auth HTTP (login, register, invites)
+├── hooks/            ← useBoardWebSocket, useAuth, useDarkMode, ...
+├── components/
+│   ├── board/        ← WorkItemBoard, WorkItemCard, WorkItemColumn, CreateWorkItemModal
+│   ├── items/        ← ItemsListView
+│   ├── card-modal/   ← CardModal (work item detail + Markdown)
+│   └── layout/       ← AppShell, AppSidebar, ProjectSelector
+├── pages/            ← one file per route
+└── router/           ← AppRouter.tsx
+```
+
+### HTTP and real-time layers
+
+| Module | Role |
+|--------|------|
+| `src/services/boardApi.ts` | All board/project/work-item API calls and domain types (`WorkItem`, `Project`, `CreateWorkItemPayload`, …) |
+| `src/services/authApi.ts` | Auth API calls (login, register, change password, invites) |
+| `src/hooks/useBoardWebSocket.ts` | STOMP over SockJS — project-scoped board updates |
+
+### Kanban components
+
+The unified board lives under `src/components/board/`:
+
+- `WorkItemBoard` — FEATURE / USER_STORY / TASK kanban with drag-and-drop
+- `WorkItemCard` / `WorkItemColumn` — draggable cards and drop zones
+- `CreateWorkItemModal` / `ParentFilterSelector` — creation and parent filtering
+- `CardModal` (`src/components/card-modal/`) — work item detail with sanitized Markdown
+
+### Routes
+
+| Path | Page | Notes |
+|------|------|-------|
+| `/inicio` | `InicioPage` | Dashboard summary |
+| `/board` | `BoardPage` | Unified kanban; reads `?type=` and `?parentId=` |
+| `/itens` | `ItemsPage` | Flat table of all work items with filters |
+| `/projetos` | `ProjetosPage` | Project list |
+| `/projetos/:id` | `ProjectDetailPage` | Project detail |
+| `/usuarios` | `UsuariosPage` | Tenant user management (admin only) |
+| `/features` | redirect → `/board` | Legacy |
+| `/user-stories` | redirect → `/board?type=USER_STORY` | Legacy |
+
+### UI stack
+
 - **React Router v6** for client-side routing
 - **SWR** for data fetching (polling ≤ 3s)
 - **@dnd-kit** for drag-and-drop Kanban board
-- **Tailwind CSS** for styling
+- **Tailwind CSS** for styling (class-based dark mode)
+
+### Test coverage gate
+
+Vitest coverage thresholds are enforced in `vite.config.ts`:
+
+| Metric | Minimum |
+|--------|---------|
+| Lines | 70% |
+| Statements | 70% |
+| Functions | 50% |
+| Branches | 64% |
+
+Run locally: `npm run test:coverage`
